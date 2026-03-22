@@ -312,6 +312,15 @@ const dom = {
 
 const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:null };
 
+function createInitialGame(){
+  return {
+    title:'Boss Battle',
+    monster:createMonsterSeeded(),
+    kids:KID_DEFAULTS.map(k=>({...k,damage:0,monsterDamage:0,kills:0})),
+    battleLog:[]
+  };
+}
+
 /* ── RNG ── */
 function mulberry32(a){ return ()=>{ let t=(a+=0x6D2B79F5); t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return((t^(t>>>14))>>>0)/4294967296; }; }
 function pick(list,rng){ return list[Math.floor(rng()*list.length)]; }
@@ -525,9 +534,32 @@ function savePeriodStats(period, stats) {
 /* ── AUTO SAVE / LOAD ── */
 const AUTO_SAVE_KEY = 'bossbattle-autosave';
 
+function sanitizeGame(game) {
+  if (!game || typeof game !== 'object') return createInitialGame();
+  const kids = normalizeKids(Array.isArray(game.kids) ? game.kids : KID_DEFAULTS);
+  const monster = game.monster && typeof game.monster === 'object'
+    ? { ...createMonsterSeeded(0), ...game.monster, hp: Number(game.monster.hp ?? game.monster.maxHp ?? 0), maxHp: Number(game.monster.maxHp ?? game.monster.hp ?? 0) }
+    : createMonsterSeeded();
+  monster.hp = Math.max(0, Math.min(monster.maxHp || 0, monster.hp || 0));
+  return {
+    title: typeof game.title === 'string' && game.title.trim() ? game.title : 'Boss Battle',
+    monster,
+    kids,
+    battleLog: Array.isArray(game.battleLog) ? game.battleLog.slice(0, 24) : []
+  };
+}
+
 function autoSave() {
   try {
-    localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({ version: 1, stats: persistedStats, savedAt: new Date().toISOString() }));
+    localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({
+      version: 2,
+      stats: persistedStats,
+      game: state.game,
+      selectedKidId: state.selectedKidId,
+      selectedMoveKey: state.selectedMoveKey,
+      activePeriod,
+      savedAt: new Date().toISOString()
+    }));
   } catch {}
 }
 
@@ -537,12 +569,24 @@ function autoLoad() {
     if (!raw) return;
     const data = JSON.parse(raw);
     if (data?.stats) { persistedStats = data.stats; }
+    if (data?.game) { state.game = sanitizeGame(data.game); }
+    if (typeof data?.selectedKidId === 'string') { state.selectedKidId = data.selectedKidId; }
+    if (typeof data?.selectedMoveKey === 'string') { state.selectedMoveKey = data.selectedMoveKey; }
+    if (['day','week','alltime'].includes(data?.activePeriod)) { activePeriod = data.activePeriod; }
   } catch {}
 }
 
 /* ── SAVE / LOAD JSON ── */
 function exportSave() {
-  const saveData = { version: 1, stats: persistedStats, exportedAt: new Date().toISOString() };
+  const saveData = {
+    version: 2,
+    stats: persistedStats,
+    game: state.game,
+    selectedKidId: state.selectedKidId,
+    selectedMoveKey: state.selectedMoveKey,
+    activePeriod,
+    exportedAt: new Date().toISOString()
+  };
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -561,7 +605,12 @@ function importSave(file) {
       const data = JSON.parse(e.target.result);
       if (!data.stats) throw new Error('Invalid save file');
       persistedStats = data.stats;
-      renderLeaderboard();
+      if (data.game) state.game = sanitizeGame(data.game);
+      if (typeof data.selectedKidId === 'string') state.selectedKidId = data.selectedKidId;
+      if (typeof data.selectedMoveKey === 'string') state.selectedMoveKey = data.selectedMoveKey;
+      if (['day','week','alltime'].includes(data.activePeriod)) activePeriod = data.activePeriod;
+      document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === activePeriod));
+      renderUI();
       showToast('Progress loaded!', 'success');
     } catch {
       showToast('Could not read that save file.', 'warning');
@@ -622,6 +671,7 @@ function renderLog(){
 function renderUI(){
   dom.appTitle.textContent=state.game?.title??'Boss Battle';
   renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard(); renderLog();
+  autoSave();
   const m=state.game?.monster; const latest=state.game?.battleLog?.[0];
   if(m?.finalBlowBy){ const w=getKidById(m.finalBlowBy); showToast(`${w?.name||'A hero'} delivered the final blow!`,'success'); }
   else if((m?.hp||0)<=0){ const leaders=getMonsterLeaders(); showToast(leaders.length===1?`${leaders[0].name} gets the final blow!`:'Final blow is ready!','success'); }
@@ -914,8 +964,9 @@ dom.resetBattleBtn.addEventListener('click', () => {
 dom.undoLastHitBtn.addEventListener('click',undoLastHit);
 dom.clearLogBtn.addEventListener('click',()=>{ state.game={...state.game,battleLog:[]}; renderUI(); showToast('Log cleared.'); });
 
-state.game={ title:'Boss Battle', monster:createMonsterSeeded(), kids:KID_DEFAULTS.map(k=>({...k,damage:0,monsterDamage:0,kills:0})), battleLog:[] };
+state.game = createInitialGame();
 autoLoad();
+document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === activePeriod));
 renderUI();
 </script>
 </body>
