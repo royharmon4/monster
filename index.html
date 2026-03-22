@@ -98,9 +98,9 @@
 
     .battle-layout { display:grid; grid-template-columns:1fr; gap:1rem; }
     @media (min-width:600px) { .battle-layout { grid-template-columns:1.1fr 1fr; } }
-    .kid-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.5rem; margin-top:0; }
-    @media (min-width:600px) { .kid-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
-    .kid-btn { background:var(--panel-2); border:1px solid var(--line); padding:0.65rem 0.5rem; text-align:center; }
+    .kid-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.4rem; margin-top:0; }
+    .kid-btn { background:var(--panel-2); border:1px solid var(--line); padding:0.65rem 0.4rem; text-align:center; min-width:0; }
+    .kid-btn strong { display:block; font-size:clamp(0.8rem,3vw,1rem); white-space:nowrap; }
     .kid-btn.selected { border-color:var(--accent); outline:2px solid rgba(124,140,255,0.32); }
     .kid-btn small,.leaderboard-card small { display:block; margin-top:0.25rem; color:var(--muted); font-weight:500; }
     .move-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.75rem; }
@@ -186,7 +186,7 @@
 
     @media (max-width:820px) {
       .monster-stage,.battle-layout,.leaderboard { grid-template-columns:1fr; }
-      .kid-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .kid-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
       .move-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .shell { padding: 12px 0 40px; }
       .topbar { flex-wrap: wrap; }
