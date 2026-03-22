@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boss Battle — Preview v3</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1221; --panel: #171b2f; --panel-2: #1e2440;
+      --text: #f5f7ff; --muted: #b1bad7; --accent: #7c8cff;
+      --accent-2: #8ef2cf; --danger: #ff6f7f; --warning: #ffd166;
+      --line: rgba(255,255,255,0.08); --shadow: 0 16px 40px rgba(0,0,0,0.28);
+      --radius: 20px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif; background:radial-gradient(circle at top,#1c2445 0%,var(--bg) 45%); color:var(--text); }
+    button,input { font:inherit; }
+    button { border:none; border-radius:14px; padding:0.85rem 1rem; font-weight:700; background:var(--accent); color:white; cursor:pointer; box-shadow:var(--shadow); transition:opacity 120ms ease,transform 120ms ease; }
+    button.ghost { background:rgba(255,255,255,0.06); color:var(--text); box-shadow:none; border:1px solid var(--line); }
+    button.danger { background:var(--danger); }
+    button:disabled { opacity:0.45; cursor:not-allowed; }
+    button:active:not(:disabled) { opacity:0.65; transform:scale(0.97); }
+    .shell { width:min(1080px,calc(100% - 24px)); margin:0 auto; padding:20px 0 40px; }
+    .topbar,.section-header,.monster-header,.row { display:flex; align-items:center; justify-content:space-between; }
+    .wrap { flex-wrap:wrap; }
+    .topbar { gap:1rem; margin-bottom:1rem; }
+    .topbar-actions { display:flex; align-items:center; gap:0.75rem; }
+    .card { background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01)); border:1px solid var(--line); border-radius:var(--radius); padding:1rem; box-shadow:var(--shadow); }
+    .stack { display:grid; }
+    .gap-sm { gap:0.5rem; } .gap-md { gap:0.85rem; } .gap-lg { gap:1rem; }
+    .eyebrow { text-transform:uppercase; letter-spacing:0.12em; color:var(--accent-2); font-size:0.72rem; margin:0 0 0.25rem; }
+    h1,h2,h3,p { margin:0; }
+    .muted { color:var(--muted); }
+    .hidden { display:none !important; }
+    .pill { display:inline-flex; align-items:center; gap:0.35rem; border-radius:999px; padding:0.35rem 0.7rem; background:rgba(124,140,255,0.18); border:1px solid rgba(124,140,255,0.35); font-size:0.84rem; }
+    .pill.muted { background:rgba(255,255,255,0.06); border-color:var(--line); }
+    .preview-badge { display:inline-flex; align-items:center; gap:0.4rem; border-radius:999px; padding:0.3rem 0.75rem; background:rgba(255,209,102,0.15); border:1px solid rgba(255,209,102,0.35); color:var(--warning); font-size:0.78rem; font-weight:600; }
+
+    .monster-stage { margin-top:0.5rem; display:grid; grid-template-columns:min(260px,40%) 1fr; gap:0.75rem; }
+    .monster-art { background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius:18px; border:1px solid var(--line); min-height:180px; display:grid; place-items:center; padding:0.4rem; }
+    .monster-art svg { width:min(100%,220px); height:auto; overflow:visible; filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)); transition:transform 400ms ease, filter 400ms ease; }
+    .monster-art.hurt      svg { transform:rotate(-4deg); filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.8); }
+    .monster-art.badly-hurt svg { transform:rotate(-9deg) translateY(6px); filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.5) brightness(0.85); animation:wooze 2.4s ease-in-out infinite; }
+    @keyframes wooze { 0%,100%{transform:rotate(-9deg) translateY(6px)} 50%{transform:rotate(-6deg) translateY(3px)} }
+    .hp-row,.pill-row { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+    .hp-bar { width:100%; height:18px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden; }
+    .hp-fill { height:100%; width:0; background:linear-gradient(90deg,var(--accent-2),var(--accent)); transition:width 260ms ease; }
+
+    .final-blow-panel { padding:1rem; border-radius:18px; border:1px solid rgba(255,209,102,0.28); background:linear-gradient(180deg,rgba(255,209,102,0.14),rgba(255,209,102,0.08)); display:grid; gap:0.85rem; }
+    .final-blow-buttons { display:flex; flex-wrap:wrap; gap:0.75rem; }
+    .final-blow-btn { background:linear-gradient(135deg,var(--danger),#c0392b); font-size:1rem; animation:finalPulse 1.4s ease-in-out infinite; }
+    @keyframes finalPulse { 0%,100%{box-shadow:0 0 20px rgba(255,111,127,0.3)} 50%{box-shadow:0 0 50px rgba(255,111,127,0.8)} }
+    .final-blow-note { color:var(--muted); font-size:0.95rem; }
+
+    /* ── DEATH SEQUENCE ── */
+    /* Shockwave rings */
+    .shockwave { position:fixed; pointer-events:none; z-index:210; border-radius:50%; border:4px solid rgba(255,255,255,0.9); animation:shockwaveExpand 600ms cubic-bezier(.2,.6,.4,1) forwards; }
+    @keyframes shockwaveExpand { 0%{opacity:1;transform:translate(-50%,-50%) scale(0)} 60%{opacity:0.6} 100%{opacity:0;transform:translate(-50%,-50%) scale(6)} }
+
+    /* Particles */
+    .burst-particle { position:fixed; pointer-events:none; z-index:211; border-radius:50%; animation:particleFly var(--dur,700ms) cubic-bezier(.2,.8,.3,1) forwards; }
+    @keyframes particleFly { 0%{opacity:1;transform:translate(-50%,-50%) translate(0,0) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(0.2)} }
+
+    /* DEFEATED stamp */
+    .death-stamp { position:fixed; pointer-events:none; z-index:212; font-size:clamp(2.5rem,8vw,5rem); font-weight:900; letter-spacing:0.12em; text-transform:uppercase; color:var(--danger); text-shadow:0 0 40px rgba(255,111,127,0.8),0 0 10px rgba(255,111,127,0.5),0 4px 20px rgba(0,0,0,0.8); animation:stampIn 800ms cubic-bezier(.18,.8,.3,1.2) forwards; white-space:nowrap; }
+    @keyframes stampIn { 0%{opacity:0;transform:translate(-50%,-50%) scale(2.5) rotate(-8deg);filter:blur(8px)} 30%{opacity:1;transform:translate(-50%,-50%) scale(0.9) rotate(2deg);filter:blur(0)} 50%{transform:translate(-50%,-50%) scale(1.04) rotate(-1deg)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)} }
+
+    /* Vignette */
+    .death-vignette { position:fixed; inset:0; pointer-events:none; z-index:209; background:radial-gradient(ellipse at center,transparent 30%,rgba(0,0,0,0.75) 100%); animation:vigIn 500ms ease forwards; }
+    @keyframes vigIn { from{opacity:0} to{opacity:1} }
+
+    /* X eyes overlay on monster */
+    .monster-art.dead-eyes svg .x-eyes { animation:xEyesPop 300ms cubic-bezier(.3,.8,.4,1.4) forwards; }
+    @keyframes xEyesPop { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+    .monster-art.is-dead { filter:grayscale(0.7) brightness(0.7); transition:filter 400ms ease; }
+
+    /* Tap to continue */
+    .tap-continue { position:fixed; inset:0; z-index:215; display:flex; align-items:flex-end; justify-content:center; padding-bottom:10vh; cursor:pointer; }
+    .tap-continue span { font-size:1rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:rgba(255,255,255,0.7); animation:tapPulse 1.2s ease-in-out infinite; }
+    @keyframes tapPulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+    /* Victory modal */
+    .victory-banner { position:fixed; inset:0; background:rgba(5,7,18,0.92); backdrop-filter:blur(8px); display:grid; place-items:center; z-index:300; padding:1rem; animation:bannerReveal 400ms cubic-bezier(.3,.8,.4,1) forwards; }
+    @keyframes bannerReveal { from{opacity:0} to{opacity:1} }
+    .victory-inner { position:relative; overflow:hidden; background:linear-gradient(160deg,#1a1f3a,#0f1221); border:1px solid rgba(142,242,207,0.25); border-radius:var(--radius); padding:2.5rem 2rem; max-width:520px; width:100%; text-align:center; box-shadow:0 0 0 1px rgba(142,242,207,0.08),0 40px 80px rgba(0,0,0,0.7),0 0 80px rgba(142,242,207,0.06); animation:innerPop 500ms 200ms cubic-bezier(.2,.8,.3,1.1) both; }
+    @keyframes innerPop { from{opacity:0;transform:scale(0.82) translateY(24px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .victory-inner::before { content:''; position:absolute; top:0; left:-100%; width:200%; height:2px; background:linear-gradient(90deg,transparent,var(--accent-2),transparent); animation:shimmer 1.2s 600ms ease forwards; }
+    @keyframes shimmer { from{left:-100%} to{left:100%} }
+    .victory-trophy { font-size:3.5rem; line-height:1; animation:trophyBounce 600ms 400ms cubic-bezier(.3,.8,.4,1.4) both; }
+    @keyframes trophyBounce { from{opacity:0;transform:scale(0) rotate(-20deg)} to{opacity:1;transform:scale(1) rotate(0)} }
+    .victory-inner h2 { font-size:2rem; margin:0.4rem 0 0.75rem; color:var(--accent-2); line-height:1.2; }
+    .victory-inner .v-line { font-size:1.05rem; color:var(--text); margin-bottom:0.5rem; }
+    .v-hero { color:var(--accent-2); font-weight:700; }
+    .v-dmg  { color:var(--warning); font-weight:800; }
+    .victory-actions { display:flex; gap:0.75rem; justify-content:center; margin-top:1.5rem; flex-wrap:wrap; }
+    .victory-actions button { min-width:140px; }
+
+    .battle-layout { display:grid; grid-template-columns:1fr; gap:1rem; }
+    @media (min-width:600px) { .battle-layout { grid-template-columns:1.1fr 1fr; } }
+    .kid-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.5rem; margin-top:0; }
+    @media (min-width:600px) { .kid-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+    .kid-btn { background:var(--panel-2); border:1px solid var(--line); padding:0.65rem 0.5rem; text-align:center; }
+    .kid-btn.selected { border-color:var(--accent); outline:2px solid rgba(124,140,255,0.32); }
+    .kid-btn small,.leaderboard-card small { display:block; margin-top:0.25rem; color:var(--muted); font-weight:500; }
+    .move-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.75rem; }
+    .move-btn { min-height:92px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:0.3rem; }
+    .hit-panel { display:grid; gap:0.75rem; }
+    .lb-tabs { display:flex; gap:0.3rem; }
+    .lb-tab { padding:0.3rem 0.65rem; font-size:0.78rem; font-weight:600; border-radius:999px; background:transparent; color:var(--muted); box-shadow:none; border:1px solid transparent; transition:all 150ms ease; }
+    .lb-tab:hover { color:var(--text); }
+    .lb-tab.active { background:rgba(124,140,255,0.18); border-color:rgba(124,140,255,0.35); color:var(--accent); box-shadow:none; }
+    .leaderboard { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.75rem; }
+    /* ── HIT BUTTON ── */
+    .hit-btn {
+      min-height:120px; font-size:1.4rem; letter-spacing:0.06em;
+      position:relative; overflow:hidden;
+      background:linear-gradient(135deg,#6a7bff,#8c5cf7);
+      transition:transform 100ms ease, box-shadow 100ms ease, opacity 120ms ease;
+    }
+    .hit-btn:hover:not(:disabled){ transform:scale(1.02); box-shadow:0 0 36px rgba(124,140,255,0.5); }
+    .hit-btn:active:not(:disabled){ transform:scale(0.93); }
+    .hit-btn::after{ content:''; position:absolute; inset:0; background:radial-gradient(circle at center,rgba(255,255,255,0.35) 0%,transparent 65%); opacity:0; border-radius:14px; }
+    @keyframes rippleOut{ 0%{opacity:1;transform:scale(0.1)} 100%{opacity:0;transform:scale(2.8)} }
+    .hit-btn.do-ripple::after{ animation:rippleOut 380ms ease forwards; }
+
+    /* ── HP BAR FLASH ── */
+    .hp-fill{ transition:width 320ms cubic-bezier(.4,0,.2,1),background 400ms ease; }
+    .hp-fill.low{ background:linear-gradient(90deg,#ff9f68,var(--danger)); }
+    @keyframes hpFlash{ 0%{filter:brightness(1)} 40%{filter:brightness(2.4)} 100%{filter:brightness(1)} }
+    .hp-fill.do-flash{ animation:hpFlash 220ms ease; }
+
+    /* ── BATTLE FEED FLASH ── */
+
+    /* ── SCREEN FLASH ── */
+    .screen-flash{ position:fixed; inset:0; pointer-events:none; z-index:199; animation:sFlash 380ms ease forwards; }
+    .screen-flash.normal{ background:rgba(142,242,207,0.09); }
+    .screen-flash.crit  { background:rgba(255,209,102,0.2); }
+    @keyframes sFlash{ 0%{opacity:1} 100%{opacity:0} }
+
+    /* ── MONSTER SHAKE ── */
+    @keyframes mHit{
+      0%{transform:translate(0,0) rotate(0)} 14%{transform:translate(-11px,0) rotate(-3deg)}
+      28%{transform:translate(11px,0) rotate(3deg)} 42%{transform:translate(-7px,0) rotate(-2deg)}
+      56%{transform:translate(7px,0) rotate(2deg)} 72%{transform:translate(-3px,0) rotate(-1deg)}
+      100%{transform:translate(0,0) rotate(0)}
+    }
+    @keyframes mCrit{
+      0%{transform:translate(0,0) scale(1) rotate(0)} 8%{transform:translate(-15px,5px) scale(0.9) rotate(-6deg)}
+      22%{transform:translate(15px,-5px) scale(1.08) rotate(6deg)} 36%{transform:translate(-10px,3px) scale(0.97) rotate(-3deg)}
+      50%{transform:translate(9px,-2px) scale(1.02) rotate(2deg)} 65%{transform:translate(-4px,0) scale(1) rotate(-1deg)}
+      100%{transform:translate(0,0) scale(1) rotate(0)}
+    }
+    .monster-art svg.do-shake     { animation:mHit  520ms ease; transform-origin:center bottom; }
+    .monster-art svg.do-shake-crit{ animation:mCrit 640ms ease; transform-origin:center bottom; }
+
+    /* ── MONSTER ART OVERLAY FLASH ── */
+    .monster-art{ position:relative; }
+    .monster-art::after{ content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; opacity:0; }
+    @keyframes artFlash{ 0%{opacity:1} 100%{opacity:0} }
+    .monster-art.do-flash-art::after     { background:rgba(255,255,255,0.22); animation:artFlash 300ms ease forwards; }
+    .monster-art.do-flash-art-crit::after{ background:rgba(255,209,102,0.32); animation:artFlash 450ms ease forwards; }
+
+    /* ── FLOATING DAMAGE NUMBER ── */
+    .dmg-float{ position:fixed; pointer-events:none; font-weight:900; line-height:1; z-index:200; text-shadow:0 2px 14px rgba(0,0,0,0.7); animation:dmgRise 950ms cubic-bezier(.18,.82,.4,1) forwards; user-select:none; white-space:nowrap; }
+    .dmg-float.normal{ color:#fff; font-size:2.6rem; }
+    .dmg-float.crit  { color:var(--warning); font-size:3.8rem; }
+    @keyframes dmgRise{
+      0%  { opacity:1; transform:translate(-50%,0) scale(1.3); }
+      12% { opacity:1; transform:translate(-50%,-18px) scale(1); }
+      65% { opacity:1; transform:translate(-50%,-80px) scale(0.9); }
+      100%{ opacity:0; transform:translate(-50%,-118px) scale(0.8); }
+    }
+
+    /* ── CRIT BURST ── */
+    .crit-burst{ position:fixed; pointer-events:none; z-index:201; display:flex; flex-direction:column; align-items:center; gap:0.15rem; animation:burstPop 1050ms cubic-bezier(.2,.8,.35,1) forwards; }
+    .crit-burst .crit-word{ font-size:3.2rem; font-weight:900; letter-spacing:0.1em; color:var(--warning); text-shadow:0 0 30px rgba(255,209,102,0.9),0 0 8px rgba(255,209,102,0.6),0 3px 12px rgba(0,0,0,0.6); }
+    .crit-burst .crit-sub { font-size:1rem; font-weight:800; letter-spacing:0.22em; color:#fff; opacity:0.9; text-transform:uppercase; }
+    @keyframes burstPop{
+      0%  { opacity:0; transform:translate(-50%,-50%) scale(0.3) rotate(-10deg); }
+      10% { opacity:1; transform:translate(-50%,-50%) scale(1.22) rotate(4deg); }
+      22% { opacity:1; transform:translate(-50%,-50%) scale(0.94) rotate(-2deg); }
+      55% { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+      100%{ opacity:0; transform:translate(-50%,-50%) scale(0.88) rotate(0deg); }
+    }
+
+    @media (max-width:820px) {
+      .monster-stage,.battle-layout,.leaderboard { grid-template-columns:1fr; }
+      .kid-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .move-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .shell { padding: 12px 0 40px; }
+      .topbar { flex-wrap: wrap; }
+    }
+    .leaderboard-card { border-radius:16px; background:var(--panel-2); border:1px solid var(--line); padding:0.95rem; }
+    .score-row { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem; }
+    .score-chip { display:inline-flex; align-items:center; gap:0.35rem; padding:0.32rem 0.6rem; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid var(--line); color:var(--muted); font-size:0.85rem; }
+    .score-chip-kills { background:rgba(255,111,127,0.15); border-color:rgba(255,111,127,0.4); color:var(--danger); }
+    .log-list { display:grid; gap:0.65rem; }
+    .log-item { border-radius:14px; border:1px solid var(--line); padding:0.85rem 0.95rem; background:rgba(255,255,255,0.03); }
+    .log-item strong { color:var(--accent-2); }
+    .log-item.is-crit { border-color:rgba(255,209,102,0.4); background:rgba(255,209,102,0.05); }
+    .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:999; min-width:min(92vw,360px); max-width:min(92vw,480px); padding:0.9rem 1rem; border-radius:16px; background:rgba(22,27,47,0.96); border:1px solid rgba(255,255,255,0.12); box-shadow:var(--shadow); text-align:center; }
+    .toast.success { border-color:rgba(142,242,207,0.32); }
+    .toast.warning { border-color:rgba(255,209,102,0.35); }
+  </style>
+</head>
+<body>
+<div id="app" class="shell">
+  <header class="topbar">
+    <h1 id="appTitle">Boss Battle</h1>
+    <div class="topbar-actions">
+      <button id="saveBtn" class="ghost" type="button" title="Save progress to file">💾 Save</button>
+      <label class="ghost" style="display:inline-flex;align-items:center;border-radius:14px;padding:0.85rem 1rem;font-weight:700;background:rgba(255,255,255,0.06);color:var(--text);border:1px solid var(--line);cursor:pointer;font:inherit;" title="Load progress from file">📂 Load<input id="loadInput" type="file" accept=".json" style="display:none"/></label>
+      <button id="healMonsterBtn" class="ghost" type="button">+5 HP</button>
+      <button id="resetBattleBtn" class="danger" type="button">New Monster</button>
+    </div>
+  </header>
+
+  <main class="stack gap-lg">
+    <section class="card">
+      <div class="monster-stage">
+        <div id="monsterArt" class="monster-art" aria-hidden="true"></div>
+        <div class="monster-stats stack gap-sm" style="gap:0.4rem">
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <h2 id="monsterName" style="margin:0;font-size:1.1rem">—</h2>
+            <span id="monsterThemePill" class="pill" style="font-size:0.72rem">Theme</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <span style="font-size:0.85rem;white-space:nowrap">HP</span>
+            <div class="hp-bar" style="flex:1"><div id="monsterHpFill" class="hp-fill"></div></div>
+            <strong id="monsterHpText" style="font-size:0.85rem;white-space:nowrap">0 / 0</strong>
+          </div>
+
+
+          <div id="finalBlowPanel" class="final-blow-panel hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card battle-card">
+      <div class="battle-layout">
+        <div id="kidButtons" class="kid-grid" style="margin-top:0"></div>
+        <div id="movePanel" class="stack gap-md"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+        <strong>Leaderboard</strong>
+        <div class="lb-tabs">
+          <button class="lb-tab active" data-period="day">Today</button>
+          <button class="lb-tab" data-period="week">Week</button>
+          <button class="lb-tab" data-period="alltime">All Time</button>
+        </div>
+      </div>
+      <div id="leaderboard" class="leaderboard"></div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+        <div class="row wrap gap-sm">
+          <button id="undoLastHitBtn" class="ghost" type="button">Undo</button>
+          <button id="clearLogBtn" class="ghost" type="button">Clear log</button>
+        </div>
+      </div>
+      <div id="battleLog" class="log-list"></div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* ── State ── */
+const KID_DEFAULTS = [
+  { id:'jj',    name:'JJ',    age:10 },
+  { id:'roy5',  name:'Roy5',  age:8  },
+  { id:'drey',  name:'Drey',  age:4  },
+  { id:'sarge', name:'Sarge', age:4  }
+];
+
+const MOVE_DEFS = {
+  attack: { label:'Attack', baseDamage:1, critChance:0.1,  critBonus:1, flavor:'Solid everyday win.' },
+  combo:  { label:'Combo',  baseDamage:3, critChance:0.15, critBonus:2, flavor:'Big move for a bigger moment.' }
+};
+
+const THEMES = {
+  morning:   { label:'Morning',   flavor:'Weak to getting ready without drama.',           prefixes:['Snooze','Toothbrush','Pajama','Latebell','Alarm','Breakfast','Backpack','Sock'],  types:['Goblin','Troll','Hydra','Wraith','Ogre','Slime'] },
+  chores:    { label:'Chores',    flavor:'Weak to ownership, cleanup, and follow-through.', prefixes:['Clutter','Dust','Trash','Sock','Laundry','Crumb','Mess','Mop'],                types:['Golem','Beast','Dragon','Troll','Slime','Ogre'] },
+  kindness:  { label:'Kindness',  flavor:'Weak to sibling kindness and respectful words.',  prefixes:['Whine','Snarl','Bicker','Grumble','Sulk','Snap','Nudge','Huff'],               types:['Wraith','Goblin','Hydra','Ogre','Gremlin','Beast'] },
+  listening: { label:'Listening', flavor:'Weak to first-time listening and fast obedience.',prefixes:['Stall','Delay','Nope','Mumble','Echo','Detour','Shrug','Waitasec'],            types:['Goblin','Slime','Ogre','Imp','Wraith','Troll'] }
+};
+
+const dom = {
+  appTitle:         document.getElementById('appTitle'),
+  monsterName:      document.getElementById('monsterName'),
+  monsterArt:       document.getElementById('monsterArt'),
+  monsterHpText:    document.getElementById('monsterHpText'),
+  monsterHpFill:    document.getElementById('monsterHpFill'),
+  monsterThemePill: document.getElementById('monsterThemePill'),
+  finalBlowPanel:   document.getElementById('finalBlowPanel'),
+  kidButtons:       document.getElementById('kidButtons'),
+  movePanel:        document.getElementById('movePanel'),
+  leaderboard:      document.getElementById('leaderboard'),
+  battleLog:        document.getElementById('battleLog'),
+  undoLastHitBtn:   document.getElementById('undoLastHitBtn'),
+  clearLogBtn:      document.getElementById('clearLogBtn'),
+  healMonsterBtn:   document.getElementById('healMonsterBtn'),
+  resetBattleBtn:   document.getElementById('resetBattleBtn'),
+  toast:            document.getElementById('toast')
+};
+
+const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:null };
+
+/* ── RNG ── */
+function mulberry32(a){ return ()=>{ let t=(a+=0x6D2B79F5); t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return((t^(t>>>14))>>>0)/4294967296; }; }
+function pick(list,rng){ return list[Math.floor(rng()*list.length)]; }
+
+function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
+  const rng=mulberry32(seed), themeKey=pick(Object.keys(THEMES),rng), theme=THEMES[themeKey];
+  const maxHp=30+Math.floor(rng()*16);
+  return { seed, themeKey, name:`${pick(theme.prefixes,rng)} ${pick(theme.types,rng)}`,
+    flavor:theme.flavor, maxHp, hp:maxHp, finalBlowBy:null, finalBlowAt:null,
+    palette:{ body:pick(['#7c8cff','#8ef2cf','#ff9f68','#ff6f7f','#ffd166','#9d7cff'],rng), accent:pick(['#ffffff','#f5f7ff','#ffe7a6','#d7fffb'],rng), dark:pick(['#1e2440','#20273f','#251d3f','#182336'],rng) },
+    parts:{ body:Math.floor(rng()*4), eyes:Math.floor(rng()*4), mouth:Math.floor(rng()*4), horns:Math.floor(rng()*4), arms:Math.floor(rng()*4) } };
+}
+
+function normalizeKids(kids=KID_DEFAULTS){
+  return kids.map((kid,i)=>({ ...KID_DEFAULTS[i], ...kid, damage:Number(kid?.damage||0), monsterDamage:Number(kid?.monsterDamage||0), kills:Number(kid?.kills||0) }));
+}
+
+/* ── SVG ── */
+function renderMonsterSVG(m, pct=100){
+  const {palette:p,parts}=m;
+  const bodies=[`<ellipse cx="160" cy="178" rx="84" ry="98" fill="${p.body}"/>`,`<rect x="82" y="86" width="156" height="182" rx="46" fill="${p.body}"/>`,`<path d="M74 189C74 110 115 80 161 80C207 80 248 110 248 189C248 239 214 276 161 276C108 276 74 239 74 189Z" fill="${p.body}"/>`,`<path d="M86 147C86 101 118 78 161 78C204 78 236 101 236 147V208C236 250 204 278 161 278C118 278 86 250 86 208V147Z" fill="${p.body}"/>`];
+  const eyes=[`<g fill="${p.dark}"><circle cx="128" cy="156" r="12"/><circle cx="192" cy="156" r="12"/></g><g fill="${p.accent}"><circle cx="131" cy="153" r="3"/><circle cx="195" cy="153" r="3"/></g>`,`<g stroke="${p.dark}" stroke-width="8" stroke-linecap="round"><path d="M114 154h28"/><path d="M178 154h28"/></g>`,`<g fill="${p.dark}"><ellipse cx="128" cy="156" rx="16" ry="10"/><ellipse cx="192" cy="156" rx="16" ry="10"/></g><g fill="${p.accent}"><circle cx="133" cy="156" r="3"/><circle cx="197" cy="156" r="3"/></g>`,`<g fill="${p.dark}"><path d="M114 155c6-16 22-16 28 0z"/><path d="M178 155c6-16 22-16 28 0z"/></g>`];
+  const mouths=[`<path d="M128 208c18 18 48 18 66 0" stroke="${p.dark}" stroke-width="8" stroke-linecap="round" fill="none"/>`,`<ellipse cx="160" cy="210" rx="26" ry="14" fill="${p.dark}"/>`,`<path d="M130 212h60" stroke="${p.dark}" stroke-width="10" stroke-linecap="round"/>`,`<path d="M130 205c10 14 20 18 30 18c10 0 20-4 30-18" stroke="${p.dark}" stroke-width="8" fill="none" stroke-linecap="round"/>`];
+  const horns=[`<g fill="${p.dark}"><path d="M106 95c-14-30 8-50 28-50c-6 16 0 27 10 39z"/><path d="M214 95c14-30-8-50-28-50c6 16 0 27-10 39z"/></g>`,`<g fill="${p.dark}"><circle cx="118" cy="86" r="16"/><circle cx="202" cy="86" r="16"/></g>`,`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M118 95c-16-20-16-38-4-50"/><path d="M202 95c16-20 16-38 4-50"/></g>`,``];
+  const arms=[`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M88 186c-34 10-42 30-46 44"/><path d="M232 186c34 10 42 30 46 44"/></g>`,`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M84 194c-22 2-38 14-46 34"/><path d="M236 194c22 2 38 14 46 34"/></g>`,`<g fill="${p.dark}"><circle cx="72" cy="202" r="14"/><circle cx="248" cy="202" r="14"/></g>`,``];
+
+  // Damage marks — cracks that appear at two thresholds
+  const crackColor = 'rgba(0,0,0,0.55)';
+  const cracks1 = pct <= 66 ? `<g stroke="${crackColor}" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7">
+    <path d="M155 120 l-8 14 l6 4 l-10 18"/>
+    <path d="M185 200 l5 -10 l-4 -3 l7 -12"/>
+  </g>` : '';
+  const cracks2 = pct <= 33 ? `<g stroke="${crackColor}" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.85">
+    <path d="M120 165 l12 -8 l-3 -6 l14 -10"/>
+    <path d="M170 230 l-6 -14 l5 -3 l-9 -16"/>
+    <path d="M200 140 l-10 12 l4 5 l-8 14"/>
+  </g>` : '';
+  // Stars/impact marks at low HP
+  const stars = pct <= 33 ? `<g fill="${crackColor}" opacity="0.5">
+    <circle cx="130" cy="200" r="4"/>
+    <circle cx="195" cy="180" r="3"/>
+    <circle cx="160" cy="120" r="3.5"/>
+  </g>` : '';
+
+  return `<svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${m.name}">
+    <ellipse cx="160" cy="288" rx="84" ry="18" fill="rgba(0,0,0,0.22)"/>
+    ${horns[parts.horns]}${arms[parts.arms]}${bodies[parts.body]}${eyes[parts.eyes]}${mouths[parts.mouth]}
+    ${cracks1}${cracks2}${stars}
+  </svg>`;
+}
+
+/* ── Toast ── */
+function showToast(msg, tone=''){
+  dom.toast.textContent=msg; dom.toast.className='toast'; if(tone) dom.toast.classList.add(tone);
+  dom.toast.classList.remove('hidden');
+  clearTimeout(state.toastTimer);
+  state.toastTimer=setTimeout(()=>dom.toast.classList.add('hidden'),2200);
+}
+
+/* ── Helpers ── */
+function getKidById(id){ return state.game?.kids?.find(k=>k.id===id)??null; }
+
+function getMonsterLeaderIds(game=state.game){
+  const kids=normalizeKids(game?.kids||[]);
+  const high=Math.max(0,...kids.map(k=>Number(k.monsterDamage||0)));
+  if(high<=0) return [];
+  const tied=kids.filter(k=>Number(k.monsterDamage||0)===high).map(k=>k.id);
+  if(tied.length===1) return tied;
+  // Break tie: walk log oldest-first, whoever accumulated to `high` first wins
+  const log=[...(game?.battleLog||[])].reverse();
+  const running={};
+  for(const entry of log){
+    if(!tied.includes(entry.kidId)) continue;
+    running[entry.kidId]=(running[entry.kidId]||0)+entry.damage;
+    if(running[entry.kidId]>=high) return [entry.kidId];
+  }
+  return [tied[0]]; // fallback
+}
+
+function getMonsterLeaders(game=state.game){
+  const ids=getMonsterLeaderIds(game);
+  return ids.map(id=>getKidById(id)||normalizeKids(game?.kids||[]).find(k=>k.id===id)).filter(Boolean);
+}
+
+/* ── Render ── */
+function renderMonster(){
+  const m=state.game?.monster; if(!m||dom.monsterArt.classList.contains('is-dead')) return;
+  const pct=Math.max(0,Math.min(100,(m.hp/m.maxHp)*100));
+  dom.monsterName.textContent=m.name;
+  dom.monsterThemePill.textContent=THEMES[m.themeKey]?.label??m.themeKey;
+  dom.monsterArt.innerHTML=renderMonsterSVG(m,pct);
+  dom.monsterHpText.textContent=`${m.hp} / ${m.maxHp}`;
+  dom.monsterHpFill.style.width=`${pct}%`;
+  dom.monsterHpFill.classList.toggle('low', pct<30);
+  // Visual damage state on the art box
+  dom.monsterArt.classList.toggle('hurt',  pct<=66 && pct>33);
+  dom.monsterArt.classList.toggle('badly-hurt', pct<=33 && pct>0);
+}
+
+function renderFinalBlowPanel(){
+  const m=state.game?.monster; if(!m) return;
+  if((m.hp||0)>0){ dom.finalBlowPanel.classList.add('hidden'); dom.finalBlowPanel.innerHTML=''; return; }
+
+  const leaders=getMonsterLeaders();
+
+  if(m.finalBlowBy){
+    const winner=getKidById(m.finalBlowBy);
+    dom.finalBlowPanel.classList.remove('hidden');
+    dom.finalBlowPanel.innerHTML=`<h3>${winner?.name||'A hero'} delivered the final blow.</h3>`;
+    return;
+  }
+
+  dom.finalBlowPanel.classList.remove('hidden');
+  dom.finalBlowPanel.innerHTML=`
+    <div class="final-blow-buttons">
+      ${leaders.length?leaders.map(kid=>`<button class="final-blow-btn" data-final-kid-id="${kid.id}" type="button">${kid.name} delivers final blow</button>`).join('')
+        :'<button class="final-blow-btn" disabled>No eligible kid yet</button>'}
+    </div>`;
+
+  dom.finalBlowPanel.querySelectorAll('[data-final-kid-id]').forEach(btn=>{
+    if(!btn.dataset.finalKidId) return;
+    btn.addEventListener('click',()=>deliverFinalBlow(btn.dataset.finalKidId));
+  });
+}
+
+function renderKidButtons(){
+  const kids=state.game?.kids??[];
+  dom.kidButtons.innerHTML=kids.map(kid=>`
+    <button class="kid-btn ${state.selectedKidId===kid.id?'selected':''}" data-kid-id="${kid.id}" type="button">
+      <strong>${kid.name}</strong>
+    </button>`).join('');
+  dom.kidButtons.querySelectorAll('[data-kid-id]').forEach(btn=>{
+    btn.addEventListener('click',()=>{ state.selectedKidId=btn.dataset.kidId; state.selectedMoveKey=null; renderUI(); });
+  });
+}
+
+function renderMovePanel(){
+  const kid=getKidById(state.selectedKidId);
+  const m=state.game?.monster;
+  if(!kid){ dom.movePanel.innerHTML=''; return; }
+
+  if(m?.finalBlowBy){
+    const winner=getKidById(m.finalBlowBy);
+    dom.movePanel.innerHTML=`<div class="card"><h3>${winner?.name||'A hero'} landed the final blow.</h3></div>`;
+    return;
+  }
+
+  if((m?.hp||0)<=0){
+    const leaders=getMonsterLeaders();
+    const txt=leaders.length===1?`${leaders[0].name} earned the final blow.`:leaders.length>1?`${leaders.map(l=>l.name).join(' and ')} are tied.`:'';
+    dom.movePanel.innerHTML=txt?`<div class="card"><p class="muted">${txt}</p></div>`:'';
+    return;
+  }
+
+  if(!state.selectedMoveKey){
+    dom.movePanel.innerHTML=`
+      <div class="move-grid">
+        ${Object.entries(MOVE_DEFS).map(([key,move])=>`
+          <button class="move-btn" data-move-key="${key}" type="button">
+            <span>${move.label}</span>
+            <small>${move.baseDamage} base · ${Math.round(move.critChance*100)}% crit</small>
+          </button>`).join('')}
+      </div>`;
+    dom.movePanel.querySelectorAll('[data-move-key]').forEach(btn=>{
+      btn.addEventListener('click',()=>{ state.selectedMoveKey=btn.dataset.moveKey; renderUI(); });
+    });
+    return;
+  }
+
+  const move=MOVE_DEFS[state.selectedMoveKey];
+  dom.movePanel.innerHTML=`
+    <div class="hit-panel">
+      <button id="hitBtn" class="hit-btn" type="button">HIT</button>
+      <div class="row gap-sm"><button id="backBtn" class="ghost" type="button">← Back</button></div>
+    </div>`;
+  document.getElementById('hitBtn').addEventListener('click', handleHit);
+  document.getElementById('backBtn').addEventListener('click',()=>{ state.selectedMoveKey=null; renderUI(); });
+}
+
+/* ── PERSISTENT STATS ── */
+let activePeriod = 'day';
+
+// In-memory stats store: { day: { '2026-3-22': { JJ: {kills,damage}, ... } }, week: {...}, alltime: {...} }
+let persistedStats = { day: {}, week: {}, alltime: {} };
+
+function periodKey(period) {
+  const now = new Date();
+  if (period === 'day') return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  if (period === 'week') {
+    const d = new Date(now); d.setHours(0,0,0,0);
+    d.setDate(d.getDate() - ((d.getDay()+6)%7));
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+  return 'alltime';
+}
+
+function loadPeriodStats(period) {
+  if (period === 'alltime') return persistedStats.alltime || {};
+  const key = periodKey(period);
+  return (persistedStats[period] || {})[key] || {};
+}
+
+function savePeriodStats(period, stats) {
+  if (period === 'alltime') { persistedStats.alltime = stats; autoSave(); return; }
+  const key = periodKey(period);
+  if (!persistedStats[period]) persistedStats[period] = {};
+  persistedStats[period][key] = stats;
+  autoSave();
+}
+
+/* ── AUTO SAVE / LOAD ── */
+const AUTO_SAVE_KEY = 'bossbattle-autosave';
+
+function autoSave() {
+  try {
+    localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({ version: 1, stats: persistedStats, savedAt: new Date().toISOString() }));
+  } catch {}
+}
+
+function autoLoad() {
+  try {
+    const raw = localStorage.getItem(AUTO_SAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data?.stats) { persistedStats = data.stats; }
+  } catch {}
+}
+
+/* ── SAVE / LOAD JSON ── */
+function exportSave() {
+  const saveData = { version: 1, stats: persistedStats, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const d = new Date();
+  a.download = `bossbattle-save-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Progress saved!', 'success');
+}
+
+function importSave(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.stats) throw new Error('Invalid save file');
+      persistedStats = data.stats;
+      renderLeaderboard();
+      showToast('Progress loaded!', 'success');
+    } catch {
+      showToast('Could not read that save file.', 'warning');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function recordStatsForKids(killerName, allKids) {
+  ['day','week','alltime'].forEach(period => {
+    const stats = loadPeriodStats(period);
+    // Record kill for the finisher
+    if (!stats[killerName]) stats[killerName] = { kills:0, damage:0 };
+    stats[killerName].kills = (stats[killerName].kills||0) + 1;
+    // Record damage for everyone who hit
+    allKids.forEach(kid => {
+      if ((kid.monsterDamage||0) > 0) {
+        if (!stats[kid.name]) stats[kid.name] = { kills:0, damage:0 };
+        stats[kid.name].damage = (stats[kid.name].damage||0) + kid.monsterDamage;
+      }
+    });
+    savePeriodStats(period, stats);
+  });
+}
+
+function renderLeaderboard() {
+  const stats = loadPeriodStats(activePeriod);
+  // Merge live monsterDamage into damage for current period display
+  const liveKids = state.game?.kids ?? [];
+  const kids = KID_DEFAULTS.map(k => {
+    const live = liveKids.find(l => l.id === k.id);
+    const saved = stats[k.name] || { kills:0, damage:0 };
+    return {
+      name: k.name,
+      kills: saved.kills || 0,
+      damage: (saved.damage || 0) + (live?.monsterDamage || 0),
+    };
+  }).sort((a, b) => b.damage - a.damage);
+  const topKills = Math.max(0, ...kids.map(k => k.kills));
+  dom.leaderboard.innerHTML = kids.map(kid => `
+    <div class="leaderboard-card">
+      <strong>${kid.name}</strong>
+      <div class="score-row">
+        <span class="score-chip" title="Total damage">📊 ${kid.damage}</span>
+        <span class="score-chip ${kid.kills===topKills&&topKills>0?'score-chip-kills':''}" title="Kills">💀 ${kid.kills}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderLog(){
+  const log=state.game?.battleLog??[];
+  dom.battleLog.innerHTML=log.length
+    ?log.map(e=>`<div class="log-item ${e.wasCrit?'is-crit':''}"><strong>${e.kidName}</strong> used ${e.moveLabel} for ${e.damage} damage${e.wasCrit?' — CRITICAL HIT':''}.`+
+      (e.wasCrit?` <span style="display:inline-block;margin-left:0.3rem;background:rgba(255,209,102,0.2);border:1px solid rgba(255,209,102,0.5);color:var(--warning);border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700">Crit</span>`:'')+'</div>').join('')
+    :'';
+}
+
+function renderUI(){
+  dom.appTitle.textContent=state.game?.title??'Boss Battle';
+  renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard(); renderLog();
+  const m=state.game?.monster; const latest=state.game?.battleLog?.[0];
+  if(m?.finalBlowBy){ const w=getKidById(m.finalBlowBy); showToast(`${w?.name||'A hero'} delivered the final blow!`,'success'); }
+  else if((m?.hp||0)<=0){ const leaders=getMonsterLeaders(); showToast(leaders.length===1?`${leaders[0].name} gets the final blow!`:'Final blow is ready!','success'); }
+}
+
+/* ── HIT ANIMATIONS ── */
+function pulseClass(el,cls,dur){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); if(dur) setTimeout(()=>el.classList.remove(cls),dur); }
+
+function spawnDamageNumber(damage,wasCrit){
+  const rect=dom.monsterArt.getBoundingClientRect();
+  const x=rect.left+rect.width*(0.38+Math.random()*0.24);
+  const y=rect.top+rect.height*(0.30+Math.random()*0.18);
+  const el=document.createElement('div');
+  el.className=`dmg-float ${wasCrit?'crit':'normal'}`;
+  el.textContent=wasCrit?`${damage}!!`:`-${damage}`;
+  el.style.left=`${x}px`; el.style.top=`${y}px`;
+  document.body.appendChild(el);
+  el.addEventListener('animationend',()=>el.remove(),{once:true});
+}
+
+function spawnCritBurst(){
+  const rect=dom.monsterArt.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='crit-burst';
+  el.style.left=`${rect.left+rect.width/2}px`;
+  el.style.top=`${rect.top+rect.height*0.42}px`;
+  el.innerHTML='<span class="crit-word">CRITICAL!</span><span class="crit-sub">Hit</span>';
+  document.body.appendChild(el);
+  el.addEventListener('animationend',()=>el.remove(),{once:true});
+}
+
+function spawnScreenFlash(wasCrit){
+  const el=document.createElement('div');
+  el.className=`screen-flash ${wasCrit?'crit':'normal'}`;
+  document.body.appendChild(el);
+  el.addEventListener('animationend',()=>el.remove(),{once:true});
+}
+
+function shakeMonster(wasCrit){
+  const svg=dom.monsterArt.querySelector('svg'); if(!svg) return;
+  const cls=wasCrit?'do-shake-crit':'do-shake';
+  svg.classList.remove('do-shake','do-shake-crit'); void svg.offsetWidth;
+  svg.classList.add(cls);
+  svg.addEventListener('animationend',()=>svg.classList.remove(cls),{once:true});
+}
+
+function flashMonsterArt(wasCrit){
+  const cls=wasCrit?'do-flash-art-crit':'do-flash-art';
+  dom.monsterArt.classList.remove('do-flash-art','do-flash-art-crit'); void dom.monsterArt.offsetWidth;
+  dom.monsterArt.classList.add(cls);
+  setTimeout(()=>dom.monsterArt.classList.remove(cls),480);
+}
+
+function rippleHitBtn(){
+  const btn=document.getElementById('hitBtn'); if(!btn) return;
+  pulseClass(btn,'do-ripple');
+  btn.addEventListener('animationend',()=>btn.classList.remove('do-ripple'),{once:true});
+}
+
+function playHitEffects(damage,wasCrit){
+  rippleHitBtn();
+  spawnScreenFlash(wasCrit);
+  shakeMonster(wasCrit);
+  flashMonsterArt(wasCrit);
+  const hpFill=document.getElementById('monsterHpFill');
+  if(hpFill) pulseClass(hpFill,'do-flash',280);
+
+  setTimeout(()=>spawnDamageNumber(damage,wasCrit),55);
+  if(wasCrit) setTimeout(()=>spawnCritBurst(),110);
+}
+
+/* ── Game logic ── */
+function handleHit(){
+  const kid=getKidById(state.selectedKidId);
+  const move=MOVE_DEFS[state.selectedMoveKey];
+  const m=state.game?.monster;
+  if(!kid||!move) return;
+  if(m?.finalBlowBy){ showToast('That fight is finished. Start the next monster.','warning'); return; }
+  if((m?.hp||0)<=0){ showToast('Boss is down. Use the final blow button.','warning'); return; }
+
+  const wasCrit=Math.random()<move.critChance;
+  const damage=move.baseDamage+(wasCrit?move.critBonus:0);
+  const nextHp=Math.max(0,m.hp-damage);
+
+  playHitEffects(damage,wasCrit);
+
+  state.game={
+    ...state.game,
+    monster:{...m,hp:nextHp},
+    kids:state.game.kids.map(k=>k.id===kid.id?{...k,damage:k.damage+damage,monsterDamage:(k.monsterDamage||0)+damage}:{...k}),
+    battleLog:[{kidId:kid.id,kidName:kid.name,moveKey:state.selectedMoveKey,moveLabel:move.label,damage,wasCrit,at:new Date().toISOString()},...(state.game.battleLog||[])].slice(0,24)
+  };
+
+  state.selectedKidId=null; state.selectedMoveKey=null;
+  renderUI();
+  if(nextHp<=0) showToast('Boss is down. Final blow is ready.','success');
+}
+
+function renderDeadMonsterSVG(m){
+  // Same as normal but replaces eyes with X's
+  const {palette:p,parts}=m;
+  const bodies=[`<ellipse cx="160" cy="178" rx="84" ry="98" fill="${p.body}"/>`,`<rect x="82" y="86" width="156" height="182" rx="46" fill="${p.body}"/>`,`<path d="M74 189C74 110 115 80 161 80C207 80 248 110 248 189C248 239 214 276 161 276C108 276 74 239 74 189Z" fill="${p.body}"/>`,`<path d="M86 147C86 101 118 78 161 78C204 78 236 101 236 147V208C236 250 204 278 161 278C118 278 86 250 86 208V147Z" fill="${p.body}"/>`];
+  const mouths=[`<path d="M128 208c18 18 48 18 66 0" stroke="${p.dark}" stroke-width="8" stroke-linecap="round" fill="none"/>`,`<ellipse cx="160" cy="210" rx="26" ry="14" fill="${p.dark}"/>`,`<path d="M130 212h60" stroke="${p.dark}" stroke-width="10" stroke-linecap="round"/>`,`<path d="M130 205c10 14 20 18 30 18c10 0 20-4 30-18" stroke="${p.dark}" stroke-width="8" fill="none" stroke-linecap="round"/>`];
+  const horns=[`<g fill="${p.dark}"><path d="M106 95c-14-30 8-50 28-50c-6 16 0 27 10 39z"/><path d="M214 95c14-30-8-50-28-50c6 16 0 27-10 39z"/></g>`,`<g fill="${p.dark}"><circle cx="118" cy="86" r="16"/><circle cx="202" cy="86" r="16"/></g>`,`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M118 95c-16-20-16-38-4-50"/><path d="M202 95c16-20 16-38 4-50"/></g>`,``];
+  const arms=[`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M88 186c-34 10-42 30-46 44"/><path d="M232 186c34 10 42 30 46 44"/></g>`,`<g stroke="${p.dark}" stroke-width="12" stroke-linecap="round"><path d="M84 194c-22 2-38 14-46 34"/><path d="M236 194c22 2 38 14 46 34"/></g>`,`<g fill="${p.dark}"><circle cx="72" cy="202" r="14"/><circle cx="248" cy="202" r="14"/></g>`,``];
+  // X eyes — two crossed lines per eye
+  const xEyes=`<g stroke="${p.dark}" stroke-width="9" stroke-linecap="round" class="x-eyes">
+    <line x1="118" y1="146" x2="138" y2="166"/><line x1="138" y1="146" x2="118" y2="166"/>
+    <line x1="182" y1="146" x2="202" y2="166"/><line x1="202" y1="146" x2="182" y2="166"/>
+  </g>`;
+  return `<svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${m.name} (defeated)">
+    <ellipse cx="160" cy="288" rx="84" ry="18" fill="rgba(0,0,0,0.22)"/>
+    ${horns[parts.horns]}${arms[parts.arms]}${bodies[parts.body]}${xEyes}${mouths[parts.mouth]}
+  </svg>`;
+}
+
+/* ── DEATH SEQUENCE ── */
+function spawnShockwave(){
+  const rect=dom.monsterArt.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const size=Math.max(rect.width,rect.height)*0.6;
+  for(let i=0;i<3;i++){
+    const el=document.createElement('div');
+    el.className='shockwave';
+    el.style.cssText=`left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;animation-delay:${i*120}ms;`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend',()=>el.remove(),{once:true});
+  }
+}
+
+function spawnDeathParticles(color){
+  const rect=dom.monsterArt.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height*0.45;
+  const colors=[color,'#fff','#ffd166','#ff6f7f','#8ef2cf','#7c8cff'];
+  for(let i=0;i<32;i++){
+    const angle=(i/32)*Math.PI*2+(Math.random()-0.5)*0.4;
+    const speed=80+Math.random()*180;
+    const tx=Math.cos(angle)*speed, ty=Math.sin(angle)*speed-60;
+    const sz=6+Math.random()*14, dur=500+Math.random()*400;
+    const c=colors[Math.floor(Math.random()*colors.length)];
+    const el=document.createElement('div');
+    el.className='burst-particle';
+    el.style.cssText=`left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;background:${c};--tx:${tx}px;--ty:${ty}px;--dur:${dur}ms;animation-delay:${Math.random()*120}ms;box-shadow:0 0 ${sz}px ${c};`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend',()=>el.remove(),{once:true});
+  }
+}
+
+function spawnDeathStamp(){
+  const rect=dom.monsterArt.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='death-stamp';
+  el.textContent='DEFEATED';
+  el.style.left=`${rect.left+rect.width/2}px`;
+  el.style.top=`${rect.top+rect.height/2}px`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1800);
+}
+
+function spawnVignette(dur){
+  const el=document.createElement('div');
+  el.className='death-vignette';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),dur);
+}
+
+function showVictoryModal(kid){
+  const existing=document.getElementById('victoryBanner');
+  if(existing) existing.remove();
+  const banner=document.createElement('div');
+  banner.id='victoryBanner';
+  banner.className='victory-banner';
+  const m=state.game?.monster;
+  banner.innerHTML=`
+    <div class="victory-inner">
+      <div class="victory-trophy">🏆</div>
+      <p class="eyebrow" style="margin-top:0.75rem">Monster defeated!</p>
+      <h2>${m?.name??'The boss'} has fallen!</h2>
+      <p class="v-line"><span class="v-hero">${kid.name}</span> delivers the killing blow for <span class="v-dmg">${kid.monsterDamage} total damage</span>.</p>
+      <div class="victory-actions">
+        <button id="vNewBtn" type="button">⚔️ Next monster</button>
+      </div>
+    </div>`;
+  document.getElementById('app').appendChild(banner);
+  document.getElementById('vNewBtn').addEventListener('click',()=>{
+    banner.remove();
+    state.game={
+      ...state.game,
+      monster:createMonsterSeeded(),
+      kids:normalizeKids(state.game?.kids??KID_DEFAULTS).map(k=>({...k,monsterDamage:0})),
+      battleLog:[]
+    };
+    state.selectedKidId=null; state.selectedMoveKey=null;
+    dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt');
+    renderUI();
+  });
+}
+
+function spawnTapToContinue(kid){
+  const el=document.createElement('div');
+  el.className='tap-continue';
+  el.innerHTML='<span>Tap to continue</span>';
+  document.body.appendChild(el);
+  el.addEventListener('click',()=>{ el.remove(); showVictoryModal(kid); },{once:true});
+}
+
+function playDeathSequence(kid){
+  const color=state.game?.monster?.palette?.body??'#7c8cff';
+  // 1. Swap to X eyes immediately
+  dom.monsterArt.classList.add('is-dead');
+  dom.monsterArt.innerHTML=renderDeadMonsterSVG(state.game.monster);
+  // 2. Big screen flash
+  const flash=document.createElement('div');
+  flash.style.cssText='position:fixed;inset:0;background:white;z-index:250;pointer-events:none;animation:sFlash 300ms ease forwards;';
+  document.body.appendChild(flash);
+  flash.addEventListener('animationend',()=>flash.remove(),{once:true});
+  // 3. Timed sequence
+  const seq=[
+    [80,  ()=>spawnShockwave()],
+    [160, ()=>spawnDeathParticles(color)],
+    [260, ()=>spawnVignette(1500)],
+    [420, ()=>spawnDeathStamp()],
+    [900, ()=>spawnTapToContinue(kid)],
+  ];
+  seq.forEach(([t,fn])=>setTimeout(fn,t));
+}
+
+function deliverFinalBlow(kidId){
+  const kid=getKidById(kidId); if(!kid) return;
+  const m=state.game?.monster;
+  if((m?.hp||0)>0){ showToast('The boss is not down yet.','warning'); return; }
+  if(m?.finalBlowBy){ showToast('Final blow already delivered.','warning'); return; }
+  const leaderIds=getMonsterLeaderIds();
+  if(!leaderIds.includes(kidId)){ showToast('That kid did not lead on this monster.','warning'); return; }
+
+  state.game={
+    ...state.game,
+    monster:{...m,finalBlowBy:kidId,finalBlowAt:new Date().toISOString()},
+    kids:state.game.kids.map(k=>k.id===kidId?{...k,kills:(k.kills||0)+1}:{...k})
+  };
+  recordStatsForKids(kid.name, state.game.kids);
+  renderUI();
+  playDeathSequence(kid);
+}
+
+function healMonster(amount=5){
+  const m=state.game?.monster; if(!m) return;
+  if(m.finalBlowBy){ showToast('That fight is finished. Spawn a new monster.','warning'); return; }
+  state.game={...state.game,monster:{...m,hp:Math.min(m.maxHp,m.hp+amount)}};
+  renderUI(); showToast(`Boss healed for ${amount}.`);
+}
+
+function undoLastHit(){
+  const log=state.game?.battleLog??[]; if(!log.length){ showToast('Nothing to undo.','warning'); return; }
+  if(state.game?.monster?.finalBlowBy){ showToast('Start the next monster before undoing after a final blow.','warning'); return; }
+  const last=log[0];
+  state.game={
+    ...state.game,
+    monster:{...state.game.monster,hp:Math.min(state.game.monster.maxHp,state.game.monster.hp+last.damage)},
+    kids:state.game.kids.map(k=>k.id===last.kidId?{...k,damage:Math.max(0,k.damage-last.damage),monsterDamage:Math.max(0,(k.monsterDamage||0)-last.damage)}:{...k}),
+    battleLog:log.slice(1)
+  };
+  renderUI(); showToast(`Undid ${last.kidName}'s last hit.`,'success');
+}
+
+/* ── Boot ── */
+dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
+document.getElementById('saveBtn').addEventListener('click', exportSave);
+document.getElementById('loadInput').addEventListener('change', e => {
+  if (e.target.files[0]) { importSave(e.target.files[0]); e.target.value = ''; }
+});
+document.querySelectorAll('.lb-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activePeriod = btn.dataset.period;
+    document.querySelectorAll('.lb-tab').forEach(b => b.classList.toggle('active', b===btn));
+    renderLeaderboard();
+  });
+});
+dom.resetBattleBtn.addEventListener('click', () => {
+  state.game = {
+    ...state.game,
+    monster: createMonsterSeeded(),
+    kids: normalizeKids(state.game?.kids ?? KID_DEFAULTS).map(k => ({...k, monsterDamage: 0})),
+    battleLog: []
+  };
+  state.selectedKidId = null; state.selectedMoveKey = null;
+  dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt');
+  renderUI();
+});
+dom.undoLastHitBtn.addEventListener('click',undoLastHit);
+dom.clearLogBtn.addEventListener('click',()=>{ state.game={...state.game,battleLog:[]}; renderUI(); showToast('Log cleared.'); });
+
+state.game={ title:'Boss Battle', monster:createMonsterSeeded(), kids:KID_DEFAULTS.map(k=>({...k,damage:0,monsterDamage:0,kills:0})), battleLog:[] };
+autoLoad();
+renderUI();
+</script>
+</body>
+</html>
