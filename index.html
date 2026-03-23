@@ -103,8 +103,9 @@
     .kid-btn strong { display:block; font-size:clamp(0.8rem,3vw,1rem); white-space:nowrap; }
     .kid-btn.selected { border-color:var(--accent); outline:2px solid rgba(124,140,255,0.32); }
     .kid-btn small,.leaderboard-card small { display:block; margin-top:0.25rem; color:var(--muted); font-weight:500; }
-    .move-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0.75rem; }
+    .move-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.75rem; }
     .move-btn { min-height:92px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:0.3rem; }
+    .move-btn.grenade { background:linear-gradient(135deg,#ff8a5b,#ff4d6d); }
     .hit-panel { display:grid; gap:0.75rem; }
     .lb-tabs { display:flex; gap:0.3rem; }
     .lb-tab { padding:0.3rem 0.65rem; font-size:0.78rem; font-weight:600; border-radius:999px; background:transparent; color:var(--muted); box-shadow:none; border:1px solid transparent; transition:all 150ms ease; }
@@ -155,8 +156,23 @@
     .monster-art svg.do-shake-crit{ animation:mCrit 640ms ease; transform-origin:center bottom; }
 
     /* ── MONSTER ART OVERLAY FLASH ── */
-    .monster-art{ position:relative; }
+    .monster-art{ position:relative; overflow:visible; }
     .monster-art::after{ content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; opacity:0; }
+    .monster-burn-mark{ position:absolute; width:84px; height:44px; left:50%; top:58%; transform:translate(-50%,-50%) rotate(-10deg) scale(0.6); border-radius:50%; background:radial-gradient(circle at center, rgba(12,8,7,0.86) 0%, rgba(50,24,18,0.68) 35%, rgba(255,120,64,0.22) 60%, rgba(255,120,64,0) 100%); mix-blend-mode:multiply; filter:blur(1px); opacity:0; pointer-events:none; }
+    .monster-burn-mark.active{ animation:burnMarkAppear 650ms ease forwards; }
+    @keyframes burnMarkAppear{ 0%{opacity:0; transform:translate(-50%,-58%) rotate(-16deg) scale(0.2)} 55%{opacity:0.85; transform:translate(-50%,-50%) rotate(-8deg) scale(1.08)} 100%{opacity:0.72; transform:translate(-50%,-50%) rotate(-10deg) scale(1)} }
+    .grenade-projectile{ position:fixed; width:26px; height:26px; border-radius:50%; z-index:205; pointer-events:none; background:radial-gradient(circle at 35% 35%, #9aa4b2 0%, #55606f 55%, #1b222c 100%); border:2px solid rgba(255,255,255,0.18); box-shadow:0 0 18px rgba(255,140,100,0.35); animation:grenadeFlight 720ms cubic-bezier(.2,.75,.3,1) forwards; }
+    .grenade-projectile::before{ content:''; position:absolute; width:10px; height:10px; border-radius:4px; background:#2d333b; top:-5px; left:8px; transform:rotate(24deg); }
+    .grenade-projectile::after{ content:''; position:absolute; width:28px; height:28px; left:12px; top:-8px; background:radial-gradient(circle, rgba(255,219,120,0.95) 0%, rgba(255,147,85,0.7) 35%, rgba(255,147,85,0) 75%); filter:blur(1px); animation:fuseFlicker 180ms steps(2) infinite; }
+    @keyframes grenadeFlight{ 0%{opacity:0; transform:translate(var(--start-x),var(--start-y)) scale(0.6) rotate(-20deg)} 8%{opacity:1} 55%{transform:translate(calc(var(--start-x) + var(--delta-x) * 0.55), calc(var(--start-y) + var(--delta-y) * 0.55 - 110px)) scale(1) rotate(180deg)} 100%{opacity:1; transform:translate(calc(var(--start-x) + var(--delta-x)), calc(var(--start-y) + var(--delta-y))) scale(1.08) rotate(390deg)} }
+    @keyframes fuseFlicker{ from{transform:scale(0.85); opacity:0.6} to{transform:scale(1.1); opacity:1} }
+    .grenade-explosion{ position:fixed; width:34px; height:34px; border-radius:50%; z-index:206; pointer-events:none; background:radial-gradient(circle, rgba(255,248,210,1) 0%, rgba(255,179,82,0.95) 30%, rgba(255,93,64,0.82) 55%, rgba(98,26,16,0.18) 80%, rgba(98,26,16,0) 100%); box-shadow:0 0 40px rgba(255,148,93,0.6); animation:grenadeExplosion 620ms cubic-bezier(.16,.84,.34,1) forwards; }
+    .grenade-explosion::before, .grenade-explosion::after{ content:''; position:absolute; inset:-16px; border-radius:50%; border:3px solid rgba(255,186,122,0.55); animation:explosionRing 620ms ease-out forwards; }
+    .grenade-explosion::after{ inset:-28px; animation-delay:60ms; }
+    @keyframes grenadeExplosion{ 0%{opacity:0; transform:translate(-50%,-50%) scale(0.2)} 18%{opacity:1; transform:translate(-50%,-50%) scale(2.8)} 100%{opacity:0; transform:translate(-50%,-50%) scale(4.4)} }
+    @keyframes explosionRing{ from{opacity:0.9; transform:scale(0.3)} to{opacity:0; transform:scale(1.5)} }
+    .ember-particle{ position:fixed; width:8px; height:8px; border-radius:50%; z-index:207; pointer-events:none; background:radial-gradient(circle, #ffd166 0%, #ff7b54 55%, rgba(91,18,11,0.2) 100%); box-shadow:0 0 14px rgba(255,129,84,0.7); animation:emberBurst var(--dur,900ms) ease-out forwards; }
+    @keyframes emberBurst{ 0%{opacity:1; transform:translate(-50%,-50%) translate(0,0) scale(1.1)} 100%{opacity:0; transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) scale(0.2)} }
     @keyframes artFlash{ 0%{opacity:1} 100%{opacity:0} }
     .monster-art.do-flash-art::after     { background:rgba(255,255,255,0.22); animation:artFlash 300ms ease forwards; }
     .monster-art.do-flash-art-crit::after{ background:rgba(255,209,102,0.32); animation:artFlash 450ms ease forwards; }
@@ -187,7 +203,7 @@
     @media (max-width:820px) {
       .monster-stage,.battle-layout,.leaderboard { grid-template-columns:1fr; }
       .kid-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
-      .move-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .move-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
       .shell { padding: 12px 0 40px; }
       .topbar { flex-wrap: wrap; }
     }
@@ -286,8 +302,9 @@ const KID_DEFAULTS = [
 ];
 
 const MOVE_DEFS = {
-  attack: { label:'Attack', baseDamage:1, critChance:0.1,  critBonus:1, flavor:'Solid everyday win.' },
-  combo:  { label:'Combo',  baseDamage:3, critChance:0.15, critBonus:2, flavor:'Big move for a bigger moment.' }
+  attack:  { label:'Attack',  baseDamage:1, critChance:0.1,  critBonus:1, flavor:'Solid everyday win.' },
+  combo:   { label:'Combo',   baseDamage:3, critChance:0.15, critBonus:2, flavor:'Big move for a bigger moment.' },
+  grenade: { label:'Grenade', baseDamage:5, critChance:0.2,  critBonus:3, flavor:'An explosive throw that scorches the boss.', effect:'grenade' }
 };
 
 const THEMES = {
@@ -502,7 +519,7 @@ function renderMonsterSVG(m, pct=100){
     <ellipse cx="160" cy="288" rx="84" ry="18" fill="rgba(0,0,0,0.22)"/>
     ${art.layers.extra}${art.layers.horns}${art.layers.arms}<g fill="${art.palette.body}">${art.layers.body}</g>${art.layers.eyes}${art.layers.mouth}
     ${cracks1}${cracks2}${stars}
-  </svg>`;
+  </svg><div class="monster-burn-mark ${m.burned ? 'active' : ''}" aria-hidden="true"></div>`;
 }
 
 /* ── Toast ── */
@@ -612,7 +629,7 @@ function renderMovePanel(){
     dom.movePanel.innerHTML=`
       <div class="move-grid">
         ${Object.entries(MOVE_DEFS).map(([key,move])=>`
-          <button class="move-btn" data-move-key="${key}" type="button">
+          <button class="move-btn ${key==='grenade'?'grenade':''}" data-move-key="${key}" type="button">
             <span>${move.label}</span>
             <small>${move.baseDamage} base · ${Math.round(move.critChance*100)}% crit</small>
           </button>`).join('')}
@@ -872,16 +889,87 @@ function rippleHitBtn(){
   btn.addEventListener('animationend',()=>btn.classList.remove('do-ripple'),{once:true});
 }
 
-function playHitEffects(damage,wasCrit){
-  rippleHitBtn();
-  spawnScreenFlash(wasCrit);
-  shakeMonster(wasCrit);
-  flashMonsterArt(wasCrit);
-  const hpFill=document.getElementById('monsterHpFill');
-  if(hpFill) pulseClass(hpFill,'do-flash',280);
+function launchGrenadeProjectile(){
+  const hitBtn=document.getElementById('hitBtn');
+  const targetSvg=dom.monsterArt.querySelector('svg');
+  if(!hitBtn || !targetSvg){
+    return Promise.resolve();
+  }
 
-  setTimeout(()=>spawnDamageNumber(damage,wasCrit),55);
-  if(wasCrit) setTimeout(()=>spawnCritBurst(),110);
+  const btnRect=hitBtn.getBoundingClientRect();
+  const monsterRect=dom.monsterArt.getBoundingClientRect();
+  const startX=btnRect.left + btnRect.width / 2;
+  const startY=btnRect.top + btnRect.height / 2;
+  const endX=monsterRect.left + monsterRect.width * 0.52;
+  const endY=monsterRect.top + monsterRect.height * 0.52;
+  const grenade=document.createElement('div');
+  grenade.className='grenade-projectile';
+  grenade.style.left='0px';
+  grenade.style.top='0px';
+  grenade.style.setProperty('--start-x', `${startX}px`);
+  grenade.style.setProperty('--start-y', `${startY}px`);
+  grenade.style.setProperty('--delta-x', `${endX - startX}px`);
+  grenade.style.setProperty('--delta-y', `${endY - startY}px`);
+  document.body.appendChild(grenade);
+
+  return new Promise(resolve => {
+    grenade.addEventListener('animationend', ()=>{
+      grenade.remove();
+      spawnGrenadeExplosion(endX, endY);
+      resolve();
+    }, {once:true});
+  });
+}
+
+function spawnGrenadeExplosion(x,y){
+  const blast=document.createElement('div');
+  blast.className='grenade-explosion';
+  blast.style.left=`${x}px`;
+  blast.style.top=`${y}px`;
+  document.body.appendChild(blast);
+  blast.addEventListener('animationend',()=>blast.remove(),{once:true});
+
+  for(let i=0;i<18;i++){
+    const ember=document.createElement('div');
+    ember.className='ember-particle';
+    const angle=(i/18)*Math.PI*2 + (Math.random()-0.5)*0.35;
+    const distance=24 + Math.random()*68;
+    ember.style.left=`${x}px`;
+    ember.style.top=`${y}px`;
+    ember.style.setProperty('--tx', `${Math.cos(angle)*distance}px`);
+    ember.style.setProperty('--ty', `${Math.sin(angle)*distance - 12}px`);
+    ember.style.setProperty('--dur', `${650 + Math.random()*300}ms`);
+    document.body.appendChild(ember);
+    ember.addEventListener('animationend',()=>ember.remove(),{once:true});
+  }
+
+  const burnMark=dom.monsterArt.querySelector('.monster-burn-mark');
+  if(burnMark){
+    burnMark.classList.remove('active');
+    void burnMark.offsetWidth;
+    burnMark.classList.add('active');
+  }
+}
+
+function playHitEffects(damage,wasCrit,moveKey){
+  const runImpactEffects=()=>{
+    spawnScreenFlash(wasCrit);
+    shakeMonster(wasCrit);
+    flashMonsterArt(wasCrit);
+    const hpFill=document.getElementById('monsterHpFill');
+    if(hpFill) pulseClass(hpFill,'do-flash',280);
+    setTimeout(()=>spawnDamageNumber(damage,wasCrit),55);
+    if(wasCrit) setTimeout(()=>spawnCritBurst(),110);
+  };
+
+  if(moveKey==='grenade'){
+    rippleHitBtn();
+    launchGrenadeProjectile().then(runImpactEffects);
+    return;
+  }
+
+  rippleHitBtn();
+  runImpactEffects();
 }
 
 /* ── Game logic ── */
@@ -897,11 +985,11 @@ function handleHit(){
   const damage=move.baseDamage+(wasCrit?move.critBonus:0);
   const nextHp=Math.max(0,m.hp-damage);
 
-  playHitEffects(damage,wasCrit);
+  playHitEffects(damage,wasCrit,state.selectedMoveKey);
 
   state.game={
     ...state.game,
-    monster:{...m,hp:nextHp},
+    monster:{...m,hp:nextHp,burned: state.selectedMoveKey==='grenade' ? true : Boolean(m.burned)},
     kids:state.game.kids.map(k=>k.id===kid.id?{...k,damage:k.damage+damage,monsterDamage:(k.monsterDamage||0)+damage}:{...k}),
     battleLog:[{kidId:kid.id,kidName:kid.name,moveKey:state.selectedMoveKey,moveLabel:move.label,damage,wasCrit,at:new Date().toISOString()},...(state.game.battleLog||[])].slice(0,24)
   };
