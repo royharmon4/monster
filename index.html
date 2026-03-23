@@ -1090,19 +1090,19 @@ function resetBattle(){
   renderUI();
 }
 
+function getPeriodLabel(period){
+  return ({ day:'today', week:'this week', alltime:'all-time' })[period] ?? 'selected';
+}
+
 function resetScores(){
-  persistedStats = { day:{}, week:{}, alltime:{} };
-  state.game = {
-    ...state.game,
-    kids: normalizeKids(state.game?.kids ?? KID_DEFAULTS).map(k => ({
-      ...k,
-      damage: 0,
-      monsterDamage: 0,
-      kills: 0
-    }))
+  const periodLabel = getPeriodLabel(activePeriod);
+  persistedStats = {
+    ...persistedStats,
+    [activePeriod]: {}
   };
-  renderUI();
-  showToast('Scores reset.');
+  renderLeaderboard();
+  autoSave();
+  showToast(`${periodLabel} scores reset.`);
 }
 
 /* ── Boot ── */
