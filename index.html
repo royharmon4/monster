@@ -220,7 +220,7 @@
     .toast.warning { border-color:rgba(255,209,102,0.35); }
     .leaderboard-header { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap; }
     .leaderboard-controls { display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; justify-content:flex-end; }
-    .bottom-reset { display:flex; justify-content:center; padding-top:0.25rem; }
+    .bottom-reset { display:flex; justify-content:center; gap:0.75rem; padding-top:0.25rem; flex-wrap:wrap; }
     .bottom-reset button { width:min(100%,320px); }
   </style>
 </head>
@@ -273,13 +273,13 @@
             <button class="lb-tab" data-period="week">Week</button>
             <button class="lb-tab" data-period="alltime">All Time</button>
           </div>
-          <button id="resetScoresBtn" class="ghost" type="button">Reset Scores</button>
         </div>
       </div>
       <div id="leaderboard" class="leaderboard"></div>
     </section>
 
     <div class="bottom-reset">
+      <button id="resetScoresBtn" class="ghost" type="button">Reset Scores</button>
       <button id="bottomResetBattleBtn" class="danger" type="button">Reset Battle</button>
     </div>
   </main>
