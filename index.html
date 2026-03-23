@@ -964,7 +964,8 @@ function handleHit(){
   if((m?.hp||0)<=0){ showToast('Boss is down. Use the final blow button.','warning'); return; }
 
   const wasCrit=Math.random()<move.critChance;
-  const damage=move.baseDamage+(wasCrit?move.critBonus:0);
+  const rolledDamage=move.baseDamage+(wasCrit?move.critBonus:0);
+  const damage=Math.min(rolledDamage, m.hp);
   const nextHp=Math.max(0,m.hp-damage);
 
   playHitEffects(damage,wasCrit,state.selectedMoveKey);
