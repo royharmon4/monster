@@ -782,15 +782,12 @@ function recordStatsForKids(killerName, allKids) {
 
 function renderLeaderboard() {
   const stats = loadPeriodStats(activePeriod);
-  // Merge live monsterDamage into damage for current period display
-  const liveKids = state.game?.kids ?? [];
   const kids = KID_DEFAULTS.map(k => {
-    const live = liveKids.find(l => l.id === k.id);
     const saved = stats[k.name] || { kills:0, damage:0 };
     return {
       name: k.name,
       kills: saved.kills || 0,
-      damage: (saved.damage || 0) + (live?.monsterDamage || 0),
+      damage: saved.damage || 0,
     };
   }).sort((a, b) => b.damage - a.damage);
   const topKills = Math.max(0, ...kids.map(k => k.kills));
