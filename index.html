@@ -315,7 +315,7 @@ const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:
 function createInitialGame(){
   return {
     title:'Boss Battle',
-    monster:createMonsterSeeded(),
+    monster:createPersistedMonster(),
     kids:KID_DEFAULTS.map(k=>({...k,damage:0,monsterDamage:0,kills:0})),
     battleLog:[]
   };
@@ -533,14 +533,45 @@ function savePeriodStats(period, stats) {
 
 /* ── AUTO SAVE / LOAD ── */
 const AUTO_SAVE_KEY = 'bossbattle-autosave';
+const CURRENT_MONSTER_SEED_KEY = 'current-monster-seed';
+
+function readStoredMonsterSeed() {
+  try {
+    const raw = localStorage.getItem(CURRENT_MONSTER_SEED_KEY);
+    if (raw === null) return null;
+    const seed = Number(raw);
+    return Number.isInteger(seed) ? seed : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistMonsterSeed(seed) {
+  try {
+    localStorage.setItem(CURRENT_MONSTER_SEED_KEY, String(seed));
+  } catch {}
+}
+
+function clearPersistedMonsterSeed() {
+  try {
+    localStorage.removeItem(CURRENT_MONSTER_SEED_KEY);
+  } catch {}
+}
+
+function createPersistedMonster(seed = readStoredMonsterSeed()) {
+  const monster = Number.isInteger(seed) ? createMonsterSeeded(seed) : createMonsterSeeded();
+  persistMonsterSeed(monster.seed);
+  return monster;
+}
 
 function sanitizeGame(game) {
   if (!game || typeof game !== 'object') return createInitialGame();
   const kids = normalizeKids(Array.isArray(game.kids) ? game.kids : KID_DEFAULTS);
   const monster = game.monster && typeof game.monster === 'object'
     ? { ...createMonsterSeeded(0), ...game.monster, hp: Number(game.monster.hp ?? game.monster.maxHp ?? 0), maxHp: Number(game.monster.maxHp ?? game.monster.hp ?? 0) }
-    : createMonsterSeeded();
+    : createPersistedMonster();
   monster.hp = Math.max(0, Math.min(monster.maxHp || 0, monster.hp || 0));
+  if (Number.isInteger(monster.seed)) persistMonsterSeed(monster.seed);
   return {
     title: typeof game.title === 'string' && game.title.trim() ? game.title : 'Boss Battle',
     monster,
@@ -858,9 +889,10 @@ function showVictoryModal(kid){
   document.getElementById('app').appendChild(banner);
   document.getElementById('vNewBtn').addEventListener('click',()=>{
     banner.remove();
+    clearPersistedMonsterSeed();
     state.game={
       ...state.game,
-      monster:createMonsterSeeded(),
+      monster:createPersistedMonster(),
       kids:normalizeKids(state.game?.kids??KID_DEFAULTS).map(k=>({...k,monsterDamage:0})),
       battleLog:[]
     };
@@ -951,9 +983,10 @@ document.querySelectorAll('.lb-tab').forEach(btn => {
   });
 });
 dom.resetBattleBtn.addEventListener('click', () => {
+  clearPersistedMonsterSeed();
   state.game = {
     ...state.game,
-    monster: createMonsterSeeded(),
+    monster: createPersistedMonster(),
     kids: normalizeKids(state.game?.kids ?? KID_DEFAULTS).map(k => ({...k, monsterDamage: 0})),
     battleLog: []
   };
