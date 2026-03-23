@@ -218,6 +218,8 @@
     .toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:999; min-width:min(92vw,360px); max-width:min(92vw,480px); padding:0.9rem 1rem; border-radius:16px; background:rgba(22,27,47,0.96); border:1px solid rgba(255,255,255,0.12); box-shadow:var(--shadow); text-align:center; }
     .toast.success { border-color:rgba(142,242,207,0.32); }
     .toast.warning { border-color:rgba(255,209,102,0.35); }
+    .leaderboard-header { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap; }
+    .leaderboard-controls { display:flex; align-items:center; gap:0.65rem; flex-wrap:wrap; justify-content:flex-end; }
     .bottom-reset { display:flex; justify-content:center; padding-top:0.25rem; }
     .bottom-reset button { width:min(100%,320px); }
   </style>
@@ -263,12 +265,15 @@
     </section>
 
     <section class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div class="leaderboard-header">
         <strong>Leaderboard</strong>
-        <div class="lb-tabs">
-          <button class="lb-tab active" data-period="day">Today</button>
-          <button class="lb-tab" data-period="week">Week</button>
-          <button class="lb-tab" data-period="alltime">All Time</button>
+        <div class="leaderboard-controls">
+          <div class="lb-tabs">
+            <button class="lb-tab active" data-period="day">Today</button>
+            <button class="lb-tab" data-period="week">Week</button>
+            <button class="lb-tab" data-period="alltime">All Time</button>
+          </div>
+          <button id="resetScoresBtn" class="ghost" type="button">Reset Scores</button>
         </div>
       </div>
       <div id="leaderboard" class="leaderboard"></div>
@@ -315,6 +320,7 @@ const dom = {
   kidButtons:       document.getElementById('kidButtons'),
   movePanel:        document.getElementById('movePanel'),
   leaderboard:      document.getElementById('leaderboard'),
+  resetScoresBtn:   document.getElementById('resetScoresBtn'),
   healMonsterBtn:   document.getElementById('healMonsterBtn'),
   resetBattleBtn:   document.getElementById('resetBattleBtn'),
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
@@ -1140,6 +1146,26 @@ function resetBattle(){
   renderUI();
 }
 
+function resetScores(){
+  persistedStats = { day: {}, week: {}, alltime: {} };
+  if (state.game) {
+    state.game = {
+      ...state.game,
+      kids: normalizeKids(state.game.kids ?? KID_DEFAULTS).map(kid => ({
+        ...kid,
+        damage: 0,
+        monsterDamage: 0,
+        kills: 0
+      })),
+      battleLog: []
+    };
+  }
+  state.selectedKidId = null;
+  state.selectedMoveKey = null;
+  renderUI();
+  showToast('Scores reset.', 'success');
+}
+
 /* ── Boot ── */
 dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
 document.getElementById('saveBtn').addEventListener('click', exportSave);
@@ -1155,6 +1181,7 @@ document.querySelectorAll('.lb-tab').forEach(btn => {
 });
 dom.resetBattleBtn.addEventListener('click', resetBattle);
 dom.bottomResetBattleBtn.addEventListener('click', resetBattle);
+dom.resetScoresBtn.addEventListener('click', resetScores);
 
 state.game = createInitialGame();
 autoLoad();
