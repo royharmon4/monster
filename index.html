@@ -247,12 +247,15 @@
     </section>
 
     <section class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem">
         <strong>Leaderboard</strong>
-        <div class="lb-tabs">
-          <button class="lb-tab active" data-period="day">Today</button>
-          <button class="lb-tab" data-period="week">Week</button>
-          <button class="lb-tab" data-period="alltime">All Time</button>
+        <div class="row wrap gap-sm">
+          <div class="lb-tabs">
+            <button class="lb-tab active" data-period="day">Today</button>
+            <button class="lb-tab" data-period="week">Week</button>
+            <button class="lb-tab" data-period="alltime">All Time</button>
+          </div>
+          <button id="resetScoresBtn" class="ghost" type="button">Reset Scores</button>
         </div>
       </div>
       <div id="leaderboard" class="leaderboard"></div>
@@ -314,6 +317,7 @@ const dom = {
   healMonsterBtn:   document.getElementById('healMonsterBtn'),
   resetBattleBtn:   document.getElementById('resetBattleBtn'),
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
+  resetScoresBtn:   document.getElementById('resetScoresBtn'),
   toast:            document.getElementById('toast')
 };
 
@@ -1086,6 +1090,21 @@ function resetBattle(){
   renderUI();
 }
 
+function resetScores(){
+  persistedStats = { day:{}, week:{}, alltime:{} };
+  state.game = {
+    ...state.game,
+    kids: normalizeKids(state.game?.kids ?? KID_DEFAULTS).map(k => ({
+      ...k,
+      damage: 0,
+      monsterDamage: 0,
+      kills: 0
+    }))
+  };
+  renderUI();
+  showToast('Scores reset.');
+}
+
 /* ── Boot ── */
 dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
 document.getElementById('saveBtn').addEventListener('click', exportSave);
@@ -1101,6 +1120,7 @@ document.querySelectorAll('.lb-tab').forEach(btn => {
 });
 dom.resetBattleBtn.addEventListener('click', resetBattle);
 dom.bottomResetBattleBtn.addEventListener('click', resetBattle);
+dom.resetScoresBtn.addEventListener('click', resetScores);
 dom.undoLastHitBtn.addEventListener('click',undoLastHit);
 dom.clearLogBtn.addEventListener('click',()=>{ state.game={...state.game,battleLog:[]}; renderUI(); showToast('Log cleared.'); });
 
