@@ -814,6 +814,13 @@ function renderUI(){
 /* ── HIT ANIMATIONS ── */
 function pulseClass(el,cls,dur){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); if(dur) setTimeout(()=>el.classList.remove(cls),dur); }
 
+function preserveScrollPosition(renderFn){
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  renderFn();
+  requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+}
+
 function spawnDamageNumber(damage,wasCrit){
   const rect=dom.monsterArt.getBoundingClientRect();
   const x=rect.left+rect.width*(0.38+Math.random()*0.24);
@@ -900,7 +907,7 @@ function handleHit(){
   };
 
   state.selectedKidId=null; state.selectedMoveKey=null;
-  renderUI();
+  preserveScrollPosition(() => renderUI());
   if(nextHp<=0) showToast('Boss is down. Final blow is ready.','success');
 }
 
