@@ -274,16 +274,6 @@
       <div id="leaderboard" class="leaderboard"></div>
     </section>
 
-    <section class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
-        <div class="row wrap gap-sm">
-          <button id="undoLastHitBtn" class="ghost" type="button">Undo</button>
-          <button id="clearLogBtn" class="ghost" type="button">Clear log</button>
-        </div>
-      </div>
-      <div id="battleLog" class="log-list"></div>
-    </section>
-
     <div class="bottom-reset">
       <button id="bottomResetBattleBtn" class="danger" type="button">Reset Battle</button>
     </div>
@@ -325,9 +315,6 @@ const dom = {
   kidButtons:       document.getElementById('kidButtons'),
   movePanel:        document.getElementById('movePanel'),
   leaderboard:      document.getElementById('leaderboard'),
-  battleLog:        document.getElementById('battleLog'),
-  undoLastHitBtn:   document.getElementById('undoLastHitBtn'),
-  clearLogBtn:      document.getElementById('clearLogBtn'),
   healMonsterBtn:   document.getElementById('healMonsterBtn'),
   resetBattleBtn:   document.getElementById('resetBattleBtn'),
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
@@ -811,19 +798,11 @@ function renderLeaderboard() {
     </div>`).join('');
 }
 
-function renderLog(){
-  const log=state.game?.battleLog??[];
-  dom.battleLog.innerHTML=log.length
-    ?log.map(e=>`<div class="log-item ${e.wasCrit?'is-crit':''}"><strong>${e.kidName}</strong> used ${e.moveLabel} for ${e.damage} damage${e.wasCrit?' — CRITICAL HIT':''}.`+
-      (e.wasCrit?` <span style="display:inline-block;margin-left:0.3rem;background:rgba(255,209,102,0.2);border:1px solid rgba(255,209,102,0.5);color:var(--warning);border-radius:999px;padding:0.1rem 0.45rem;font-size:0.72rem;font-weight:700">Crit</span>`:'')+'</div>').join('')
-    :'';
-}
-
 function renderUI(){
   dom.appTitle.textContent=state.game?.title??'Boss Battle';
-  renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard(); renderLog();
+  renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard();
   autoSave();
-  const m=state.game?.monster; const latest=state.game?.battleLog?.[0];
+  const m=state.game?.monster;
   if(m?.finalBlowBy){ const w=getKidById(m.finalBlowBy); showToast(`${w?.name||'A hero'} delivered the final blow!`,'success'); }
   else if((m?.hp||0)<=0){ const leaders=getMonsterLeaders(); showToast(leaders.length===1?`${leaders[0].name} gets the final blow!`:'Final blow is ready!','success'); }
 }
@@ -1148,19 +1127,6 @@ function healMonster(amount=5){
   renderUI(); showToast(`Boss healed for ${amount}.`);
 }
 
-function undoLastHit(){
-  const log=state.game?.battleLog??[]; if(!log.length){ showToast('Nothing to undo.','warning'); return; }
-  if(state.game?.monster?.finalBlowBy){ showToast('Start the next monster before undoing after a final blow.','warning'); return; }
-  const last=log[0];
-  state.game={
-    ...state.game,
-    monster:{...state.game.monster,hp:Math.min(state.game.monster.maxHp,state.game.monster.hp+last.damage)},
-    kids:state.game.kids.map(k=>k.id===last.kidId?{...k,damage:Math.max(0,k.damage-last.damage),monsterDamage:Math.max(0,(k.monsterDamage||0)-last.damage)}:{...k}),
-    battleLog:log.slice(1)
-  };
-  renderUI(); showToast(`Undid ${last.kidName}'s last hit.`,'success');
-}
-
 function resetBattle(){
   state.game = {
     ...state.game,
@@ -1189,8 +1155,6 @@ document.querySelectorAll('.lb-tab').forEach(btn => {
 });
 dom.resetBattleBtn.addEventListener('click', resetBattle);
 dom.bottomResetBattleBtn.addEventListener('click', resetBattle);
-dom.undoLastHitBtn.addEventListener('click',undoLastHit);
-dom.clearLogBtn.addEventListener('click',()=>{ state.game={...state.game,battleLog:[]}; renderUI(); showToast('Log cleared.'); });
 
 state.game = createInitialGame();
 autoLoad();
