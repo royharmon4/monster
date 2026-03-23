@@ -649,6 +649,59 @@ let activePeriod = 'day';
 // In-memory stats store: { day: { '2026-3-22': { JJ: {kills,damage}, ... } }, week: {...}, alltime: {...} }
 let persistedStats = { day: {}, week: {}, alltime: {} };
 
+function sanitizeStatsBucket(stats) {
+  if (!stats || typeof stats !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(stats).map(([name, values]) => [name, {
+      kills: Number(values?.kills || 0),
+      damage: Number(values?.damage || 0)
+    }])
+  );
+}
+
+function sanitizePersistedStats(stats) {
+  const safe = { day: {}, week: {}, alltime: {} };
+  if (!stats || typeof stats !== 'object') return safe;
+
+  ['day', 'week'].forEach(period => {
+    const buckets = stats[period];
+    if (!buckets || typeof buckets !== 'object') return;
+    safe[period] = Object.fromEntries(
+      Object.entries(buckets).map(([key, value]) => [key, sanitizeStatsBucket(value)])
+    );
+  });
+
+  safe.alltime = sanitizeStatsBucket(stats.alltime);
+  return safe;
+}
+
+function syncSelectionState() {
+  const hasSelectedKid = state.selectedKidId && getKidById(state.selectedKidId);
+  if (!hasSelectedKid) {
+    state.selectedKidId = null;
+    state.selectedMoveKey = null;
+  }
+
+  if (state.selectedMoveKey && !MOVE_DEFS[state.selectedMoveKey]) {
+    state.selectedMoveKey = null;
+  }
+}
+
+function getLeaderboardStats() {
+  const stats = sanitizeStatsBucket(loadPeriodStats(activePeriod));
+  const currentKids = normalizeKids(state.game?.kids ?? []);
+  const shouldOverlayCurrentMonster = Boolean(state.game?.monster) && !state.game.monster.finalBlowBy;
+
+  if (shouldOverlayCurrentMonster) {
+    currentKids.forEach(kid => {
+      if (!stats[kid.name]) stats[kid.name] = { kills: 0, damage: 0 };
+      stats[kid.name].damage += Number(kid.monsterDamage || 0);
+    });
+  }
+
+  return stats;
+}
+
 function periodKey(period) {
   const now = new Date();
   if (period === 'day') return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
@@ -712,11 +765,12 @@ function autoLoad() {
     const raw = localStorage.getItem(AUTO_SAVE_KEY);
     if (!raw) return;
     const data = JSON.parse(raw);
-    if (data?.stats) { persistedStats = data.stats; }
+    persistedStats = sanitizePersistedStats(data?.stats);
     if (data?.game) { state.game = sanitizeGame(data.game); }
     if (typeof data?.selectedKidId === 'string') { state.selectedKidId = data.selectedKidId; }
     if (typeof data?.selectedMoveKey === 'string') { state.selectedMoveKey = data.selectedMoveKey; }
     if (['day','week','alltime'].includes(data?.activePeriod)) { activePeriod = data.activePeriod; }
+    syncSelectionState();
   } catch {}
 }
 
@@ -747,12 +801,13 @@ function importSave(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (!data.stats) throw new Error('Invalid save file');
-      persistedStats = data.stats;
+      if (!data?.game && !data?.stats) throw new Error('Invalid save file');
+      persistedStats = sanitizePersistedStats(data?.stats);
       if (data.game) state.game = sanitizeGame(data.game);
       if (typeof data.selectedKidId === 'string') state.selectedKidId = data.selectedKidId;
       if (typeof data.selectedMoveKey === 'string') state.selectedMoveKey = data.selectedMoveKey;
       if (['day','week','alltime'].includes(data.activePeriod)) activePeriod = data.activePeriod;
+      syncSelectionState();
       document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === activePeriod));
       renderUI();
       showToast('Progress loaded!', 'success');
@@ -781,7 +836,7 @@ function recordStatsForKids(killerName, allKids) {
 }
 
 function renderLeaderboard() {
-  const stats = loadPeriodStats(activePeriod);
+  const stats = getLeaderboardStats();
   const kids = KID_DEFAULTS.map(k => {
     const saved = stats[k.name] || { kills:0, damage:0 };
     return {
