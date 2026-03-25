@@ -139,21 +139,56 @@
     .screen-flash.crit  { background:rgba(255,209,102,0.2); }
     @keyframes sFlash{ 0%{opacity:1} 100%{opacity:0} }
 
-    /* ── MONSTER SHAKE ── */
-    @keyframes mHit{
-      0%{transform:translate(0,0) rotate(0)} 14%{transform:translate(-11px,0) rotate(-3deg)}
-      28%{transform:translate(11px,0) rotate(3deg)} 42%{transform:translate(-7px,0) rotate(-2deg)}
-      56%{transform:translate(7px,0) rotate(2deg)} 72%{transform:translate(-3px,0) rotate(-1deg)}
-      100%{transform:translate(0,0) rotate(0)}
+    /* ── PAGE TILT ── */
+    @keyframes pageTilt {
+      0%  { transform: rotate(0deg); }
+      20% { transform: rotate(-1.2deg); }
+      50% { transform: rotate(1deg); }
+      75% { transform: rotate(-0.5deg); }
+      100%{ transform: rotate(0deg); }
     }
-    @keyframes mCrit{
-      0%{transform:translate(0,0) scale(1) rotate(0)} 8%{transform:translate(-15px,5px) scale(0.9) rotate(-6deg)}
-      22%{transform:translate(15px,-5px) scale(1.08) rotate(6deg)} 36%{transform:translate(-10px,3px) scale(0.97) rotate(-3deg)}
-      50%{transform:translate(9px,-2px) scale(1.02) rotate(2deg)} 65%{transform:translate(-4px,0) scale(1) rotate(-1deg)}
-      100%{transform:translate(0,0) scale(1) rotate(0)}
+    .page-tilt { animation: pageTilt 280ms cubic-bezier(.36,.07,.19,.97) forwards; }
+
+    /* ── PAGE SHAKE (crit) ── */
+    @keyframes pageShake {
+      0%  { transform: translate(0,0) rotate(0); }
+      15% { transform: translate(-8px, 3px) rotate(-1deg); }
+      30% { transform: translate(8px, -3px) rotate(1deg); }
+      45% { transform: translate(-6px, 2px) rotate(-0.8deg); }
+      60% { transform: translate(6px, -2px) rotate(0.8deg); }
+      75% { transform: translate(-3px, 1px) rotate(-0.4deg); }
+      100%{ transform: translate(0,0) rotate(0); }
     }
-    .monster-art svg.do-shake     { animation:mHit  520ms ease; transform-origin:center bottom; }
-    .monster-art svg.do-shake-crit{ animation:mCrit 640ms ease; transform-origin:center bottom; }
+    .page-shake { animation: pageShake 420ms cubic-bezier(.36,.07,.19,.97) forwards; }
+
+    /* ── MONSTER SQUASH & STRETCH ── */
+    @keyframes monsterSquash {
+      0%  { transform: scaleX(1)    scaleY(1); }
+      18% { transform: scaleX(1.22) scaleY(0.72); }
+      38% { transform: scaleX(0.88) scaleY(1.18); }
+      58% { transform: scaleX(1.06) scaleY(0.94); }
+      78% { transform: scaleX(0.97) scaleY(1.04); }
+      100%{ transform: scaleX(1)    scaleY(1); }
+    }
+    @keyframes monsterKnockback {
+      0%  { transform: translateX(0)    rotate(0deg)   scaleX(1)    scaleY(1); }
+      12% { transform: translateX(28px) rotate(8deg)   scaleX(0.82) scaleY(1.14); }
+      28% { transform: translateX(-18px) rotate(-5deg) scaleX(1.12) scaleY(0.88); }
+      48% { transform: translateX(10px) rotate(3deg)   scaleX(0.94) scaleY(1.06); }
+      68% { transform: translateX(-5px) rotate(-1deg)  scaleX(1.02) scaleY(0.98); }
+      100%{ transform: translateX(0)    rotate(0deg)   scaleX(1)    scaleY(1); }
+    }
+    .monster-art svg.do-squash   { animation: monsterSquash 480ms cubic-bezier(.36,.07,.19,.97); transform-origin: center bottom; }
+    .monster-art svg.do-knockback{ animation: monsterKnockback 580ms cubic-bezier(.36,.07,.19,.97); transform-origin: center bottom; }
+
+    /* ── IMPACT LINES (crit) ── */
+    .impact-lines { position: fixed; pointer-events: none; z-index: 202; animation: impactLinesPop 500ms cubic-bezier(.2,.8,.3,1) forwards; }
+    @keyframes impactLinesPop {
+      0%  { opacity: 0; transform: translate(-50%,-50%) scale(0.4) rotate(0deg); }
+      20% { opacity: 1; transform: translate(-50%,-50%) scale(1.1) rotate(8deg); }
+      55% { opacity: 0.8; transform: translate(-50%,-50%) scale(1) rotate(-3deg); }
+      100%{ opacity: 0; transform: translate(-50%,-50%) scale(1.15) rotate(2deg); }
+    }
 
     /* ── MONSTER ART OVERLAY FLASH ── */
     .monster-art{ position:relative; overflow:visible; }
@@ -906,11 +941,39 @@ function spawnScreenFlash(wasCrit){
 }
 
 function shakeMonster(wasCrit){
-  const svg=dom.monsterArt.querySelector('svg'); if(!svg) return;
-  const cls=wasCrit?'do-shake-crit':'do-shake';
-  svg.classList.remove('do-shake','do-shake-crit'); void svg.offsetWidth;
+  const svg = dom.monsterArt.querySelector('svg'); if(!svg) return;
+  svg.classList.remove('do-shake','do-shake-crit','do-squash','do-knockback');
+  void svg.offsetWidth;
+  const cls = wasCrit ? 'do-knockback' : 'do-squash';
   svg.classList.add(cls);
-  svg.addEventListener('animationend',()=>svg.classList.remove(cls),{once:true});
+  svg.addEventListener('animationend', () => svg.classList.remove(cls), {once:true});
+}
+
+function tiltPage(wasCrit){
+  const el = document.getElementById('app');
+  el.classList.remove('page-tilt','page-shake');
+  void el.offsetWidth;
+  el.classList.add(wasCrit ? 'page-shake' : 'page-tilt');
+  el.addEventListener('animationend', () => el.classList.remove('page-tilt','page-shake'), {once:true});
+}
+
+function spawnImpactLines(){
+  const rect = dom.monsterArt.getBoundingClientRect();
+  const cx = rect.left + rect.width  * 0.5;
+  const cy = rect.top  + rect.height * 0.42;
+  const el = document.createElement('div');
+  el.className = 'impact-lines';
+  el.style.left = `${cx}px`;
+  el.style.top  = `${cy}px`;
+  // Draw 10 radiating lines as an inline SVG
+  const lines = Array.from({length:10}, (_,i) => {
+    const angle = (i / 10) * Math.PI * 2;
+    const inner = 52, outer = 88 + Math.random() * 28;
+    return `<line x1="${Math.cos(angle)*inner}" y1="${Math.sin(angle)*inner}" x2="${Math.cos(angle)*outer}" y2="${Math.sin(angle)*outer}" stroke="#ffd166" stroke-width="${2.5 + Math.random()*2}" stroke-linecap="round" opacity="${0.7 + Math.random()*0.3}"/>`;
+  }).join('');
+  el.innerHTML = `<svg width="220" height="220" viewBox="-110 -110 220 220" style="overflow:visible">${lines}</svg>`;
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove(), {once:true});
 }
 
 function flashMonsterArt(wasCrit){
@@ -993,18 +1056,22 @@ function spawnGrenadeExplosion(x,y){
   }
 }
 
-function playHitEffects(damage,wasCrit,moveKey){
-  const runImpactEffects=()=>{
+function playHitEffects(damage, wasCrit, moveKey){
+  const runImpactEffects = () => {
     spawnScreenFlash(wasCrit);
     shakeMonster(wasCrit);
     flashMonsterArt(wasCrit);
-    const hpFill=document.getElementById('monsterHpFill');
-    if(hpFill) pulseClass(hpFill,'do-flash',280);
-    setTimeout(()=>spawnDamageNumber(damage,wasCrit),55);
-    if(wasCrit) setTimeout(()=>spawnCritBurst(),110);
+    tiltPage(wasCrit);
+    const hpFill = document.getElementById('monsterHpFill');
+    if(hpFill) pulseClass(hpFill, 'do-flash', 280);
+    setTimeout(() => spawnDamageNumber(damage, wasCrit), 55);
+    if(wasCrit){
+      setTimeout(() => spawnCritBurst(),    110);
+      setTimeout(() => spawnImpactLines(),  140);
+    }
   };
 
-  if(moveKey==='grenade'){
+  if(moveKey === 'grenade'){
     rippleHitBtn();
     launchGrenadeProjectile().then(runImpactEffects);
     return;
