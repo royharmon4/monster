@@ -497,7 +497,10 @@ function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
 }
 
 function normalizeKids(kids=KID_DEFAULTS){
-  return kids.map((kid,i)=>({ ...KID_DEFAULTS[i], ...kid, damage:Number(kid?.damage||0), monsterDamage:Number(kid?.monsterDamage||0), kills:Number(kid?.kills||0) }));
+  return KID_DEFAULTS.map(def=>{
+    const saved = kids.find(k=>k.id===def.id) ?? {};
+    return { ...def, ...saved, damage:Number(saved?.damage||0), monsterDamage:Number(saved?.monsterDamage||0), kills:Number(saved?.kills||0) };
+  });
 }
 
 /* ── SVG ── */
@@ -1203,8 +1206,8 @@ function resetScores(){
   if (state.game) {
     state.game = {
       ...state.game,
-      kids: normalizeKids(state.game.kids ?? KID_DEFAULTS).map(kid => ({
-        ...kid,
+      kids: KID_DEFAULTS.map(def => ({
+        ...def,
         damage: 0,
         monsterDamage: 0,
         kills: 0
