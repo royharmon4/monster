@@ -181,6 +181,52 @@
     .monster-art svg.do-squash   { animation: monsterSquash 480ms cubic-bezier(.36,.07,.19,.97); transform-origin: center bottom; }
     .monster-art svg.do-knockback{ animation: monsterKnockback 580ms cubic-bezier(.36,.07,.19,.97); transform-origin: center bottom; }
 
+    /* ── PRE-DEATH SQUASH ── */
+    @keyframes preDeathSquash {
+      0%  { transform: scaleX(1)    scaleY(1); }
+      25% { transform: scaleX(1.28) scaleY(0.62); }
+      50% { transform: scaleX(0.72) scaleY(1.32); }
+      70% { transform: scaleX(1.14) scaleY(0.84); }
+      85% { transform: scaleX(0.94) scaleY(1.08); }
+      100%{ transform: scaleX(1)    scaleY(1); }
+    }
+    .monster-art svg.do-pre-death {
+      animation: preDeathSquash 520ms cubic-bezier(.36,.07,.19,.97) forwards;
+      transform-origin: center bottom;
+    }
+
+    /* ── JELLO WOBBLE ── */
+    @keyframes jelloWobble {
+      0%  { transform: skewX(0deg)    skewY(0deg); }
+      12% { transform: skewX(-7deg)   skewY(-3deg); }
+      25% { transform: skewX(6deg)    skewY(2.5deg); }
+      37% { transform: skewX(-4deg)   skewY(-2deg); }
+      50% { transform: skewX(3deg)    skewY(1.5deg); }
+      62% { transform: skewX(-2deg)   skewY(-1deg); }
+      75% { transform: skewX(1.2deg)  skewY(0.6deg); }
+      87% { transform: skewX(-0.6deg) skewY(-0.3deg); }
+      100%{ transform: skewX(0deg)    skewY(0deg); }
+    }
+    .page-jello { animation: jelloWobble 700ms cubic-bezier(.36,.07,.19,.97) forwards; }
+
+    /* ── CONFETTI ── */
+    .confetti-piece {
+      position: fixed;
+      width: var(--w, 10px);
+      height: var(--h, 14px);
+      border-radius: var(--br, 2px);
+      background: var(--color, #ffd166);
+      pointer-events: none;
+      z-index: 220;
+      animation: confettiFall var(--dur, 1100ms) cubic-bezier(.22,.61,.36,1) forwards;
+    }
+    @keyframes confettiFall {
+      0%  { opacity: 1; transform: translate(0,0) rotate(var(--r0, 0deg)) scaleX(1); }
+      25% { transform: translate(var(--tx25,0px), var(--ty25,0px)) rotate(var(--r25, 90deg)) scaleX(0.6); }
+      60% { opacity: 1; transform: translate(var(--tx60,0px), var(--ty60,0px)) rotate(var(--r60, 200deg)) scaleX(1.1); }
+      100%{ opacity: 0; transform: translate(var(--tx, 0px), var(--ty, 180px)) rotate(var(--rf, 360deg)) scaleX(0.4); }
+    }
+
     /* ── IMPACT LINES (crit) ── */
     .impact-lines { position: fixed; pointer-events: none; z-index: 202; animation: impactLinesPop 500ms cubic-bezier(.2,.8,.3,1) forwards; }
     @keyframes impactLinesPop {
@@ -1212,25 +1258,96 @@ function spawnTapToContinue(kid){
   el.addEventListener('click',()=>{ el.remove(); showVictoryModal(kid); },{once:true});
 }
 
+function jelloPage(){
+  const el=document.getElementById('app');
+  el.classList.remove('page-jello');
+  void el.offsetWidth;
+  el.classList.add('page-jello');
+  el.addEventListener('animationend',()=>el.classList.remove('page-jello'),{once:true});
+}
+
+function spawnConfetti(){
+  const colors=['#ffd166','#ff6f7f','#8ef2cf','#7c8cff','#fff','#ff8a5b','#a78bfa'];
+  const shapes=[
+    { w:'10px', h:'14px', br:'2px' },
+    { w:'12px', h:'8px',  br:'1px' },
+    { w:'8px',  h:'8px',  br:'50%' },
+    { w:'14px', h:'6px',  br:'3px' }
+  ];
+  const count=72;
+
+  for(let i=0;i<count;i++){
+    const fromLeft=i<count/2;
+    const shape=shapes[Math.floor(Math.random()*shapes.length)];
+    const color=colors[Math.floor(Math.random()*colors.length)];
+    const startX=fromLeft
+      ? -(20+Math.random()*40)
+      : window.innerWidth+20+Math.random()*40;
+    const startY=window.innerHeight*(0.1+Math.random()*0.4);
+    const spreadX=(fromLeft?1:-1)*(120+Math.random()*320);
+    const spreadY=-(80+Math.random()*260);
+    const dur=900+Math.random()*600;
+    const r0=Math.random()*360;
+
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    el.style.left=`${startX}px`;
+    el.style.top=`${startY}px`;
+    el.style.setProperty('--w',shape.w);
+    el.style.setProperty('--h',shape.h);
+    el.style.setProperty('--br',shape.br);
+    el.style.setProperty('--color',color);
+    el.style.setProperty('--dur',`${dur}ms`);
+    el.style.setProperty('--r0',`${r0}deg`);
+    el.style.setProperty('--tx25',`${spreadX*0.3}px`);
+    el.style.setProperty('--ty25',`${spreadY*0.4}px`);
+    el.style.setProperty('--r25',`${r0+90}deg`);
+    el.style.setProperty('--tx60',`${spreadX*0.7}px`);
+    el.style.setProperty('--ty60',`${spreadY*0.85}px`);
+    el.style.setProperty('--r60',`${r0+200}deg`);
+    el.style.setProperty('--tx',`${spreadX}px`);
+    el.style.setProperty('--ty',`${spreadY+180}px`);
+    el.style.setProperty('--rf',`${r0+360+Math.random()*180}deg`);
+    el.style.animationDelay=`${Math.random()*180}ms`;
+    document.body.appendChild(el);
+    el.addEventListener('animationend',()=>el.remove(),{once:true});
+  }
+}
+
 function playDeathSequence(kid){
   const color=state.game?.monster?.art?.palette?.body??'#7c8cff';
-  // 1. Swap to X eyes immediately
-  dom.monsterArt.classList.add('is-dead');
-  dom.monsterArt.innerHTML=renderDeadMonsterSVG(state.game.monster);
-  // 2. Big screen flash
-  const flash=document.createElement('div');
-  flash.style.cssText='position:fixed;inset:0;background:white;z-index:250;pointer-events:none;animation:sFlash 300ms ease forwards;';
-  document.body.appendChild(flash);
-  flash.addEventListener('animationend',()=>flash.remove(),{once:true});
-  // 3. Timed sequence
-  const seq=[
-    [80,  ()=>spawnShockwave()],
-    [160, ()=>spawnDeathParticles(color)],
-    [260, ()=>spawnVignette(1500)],
-    [420, ()=>spawnDeathStamp()],
-    [900, ()=>spawnTapToContinue(kid)],
-  ];
-  seq.forEach(([t,fn])=>setTimeout(fn,t));
+  const svg=dom.monsterArt.querySelector('svg');
+
+  // 1. Pre-death squash before X-eyes swap
+  if(svg){
+    svg.classList.remove('do-squash','do-knockback','do-pre-death');
+    void svg.offsetWidth;
+    svg.classList.add('do-pre-death');
+  }
+
+  setTimeout(()=>{
+    // 2. Swap to X eyes
+    dom.monsterArt.classList.add('is-dead');
+    dom.monsterArt.innerHTML=renderDeadMonsterSVG(state.game.monster);
+
+    // 3. Big screen flash
+    const flash=document.createElement('div');
+    flash.style.cssText='position:fixed;inset:0;background:white;z-index:250;pointer-events:none;animation:sFlash 300ms ease forwards;';
+    document.body.appendChild(flash);
+    flash.addEventListener('animationend',()=>flash.remove(),{once:true});
+
+    // 4. Timed sequence
+    const seq=[
+      [80,  ()=>spawnShockwave()],
+      [160, ()=>spawnDeathParticles(color)],
+      [260, ()=>{ spawnVignette(1500); jelloPage(); }],
+      [420, ()=>spawnDeathStamp()],
+      [600, ()=>spawnConfetti()],
+      [900, ()=>spawnTapToContinue(kid)],
+    ];
+    seq.forEach(([t,fn])=>setTimeout(fn,t));
+
+  },300); // wait for pre-death squash to land
 }
 
 function deliverFinalBlow(kidId){
