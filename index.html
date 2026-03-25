@@ -802,13 +802,36 @@ function getLeaderboardStats() {
   return stats;
 }
 
+const SOUTH_CAROLINA_TIME_ZONE = 'America/New_York';
+
+function getSouthCarolinaDateParts(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: SOUTH_CAROLINA_TIME_ZONE,
+    weekday: 'short',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  }).formatToParts(now);
+
+  const values = Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  const weekdayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[values.weekday] ?? 0;
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+    weekdayIndex
+  };
+}
+
 function periodKey(period) {
-  const now = new Date();
-  if (period === 'day') return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  const nowParts = getSouthCarolinaDateParts();
+  if (period === 'day') return `${nowParts.year}-${nowParts.month - 1}-${nowParts.day}`;
   if (period === 'week') {
-    const d = new Date(now); d.setHours(0,0,0,0);
-    d.setDate(d.getDate() - ((d.getDay()+6)%7));
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const daysSinceMonday = (nowParts.weekdayIndex + 6) % 7;
+    const weekStartUtcMs = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day) - (daysSinceMonday * 86400000);
+    const weekStart = new Date(weekStartUtcMs);
+    return `${weekStart.getUTCFullYear()}-${weekStart.getUTCMonth()}-${weekStart.getUTCDate()}`;
   }
   return 'alltime';
 }
