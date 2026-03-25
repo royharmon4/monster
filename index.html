@@ -481,6 +481,35 @@ function createEyes(rng,p){
   return `<g fill="${p.dark}" stroke="${p.accent}" stroke-width="2"><circle cx="${left}" cy="${y}" r="${fmt(randRange(rng,8,11))}"/><circle cx="${right}" cy="${y}" r="${fmt(randRange(rng,8,11))}"/></g><g fill="${p.accent}"><circle cx="${left}" cy="${y}" r="${fmt(randRange(rng,2,3.5))}"/><circle cx="${right}" cy="${y}" r="${fmt(randRange(rng,2,3.5))}"/></g>`;
 }
 
+function createFlinchEyes(p){
+  // Eyes squeeze shut — thick horizontal lines with a downward crunch
+  const stroke = `stroke="${p.dark}" stroke-width="9" stroke-linecap="round"`;
+  return `<g ${stroke} fill="none">
+    <path d="M118 154 q10 -10 22 0"/>
+    <path d="M180 154 q10 -10 22 0"/>
+  </g>`;
+}
+
+function createRageEyes(rng, p){
+  // Small, narrowed — heavy brow line angled inward
+  const y = fmt(randRange(rng, 152, 162));
+  const spacing = randRange(rng, 28, 36);
+  const left = fmt(160 - spacing), right = fmt(160 + spacing);
+  return `
+    <g fill="${p.dark}">
+      <ellipse cx="${left}"  cy="${y}" rx="${fmt(randRange(rng,7,10))}" ry="${fmt(randRange(rng,5,7))}"/>
+      <ellipse cx="${right}" cy="${y}" rx="${fmt(randRange(rng,7,10))}" ry="${fmt(randRange(rng,5,7))}"/>
+    </g>
+    <g fill="${p.accent}">
+      <circle cx="${fmt(Number(left)+2)}"  cy="${fmt(Number(y)-1)}" r="${fmt(randRange(rng,2,3))}"/>
+      <circle cx="${fmt(Number(right)+2)}" cy="${fmt(Number(y)-1)}" r="${fmt(randRange(rng,2,3))}"/>
+    </g>
+    <g stroke="${p.dark}" stroke-width="8" stroke-linecap="round" fill="none">
+      <path d="M${fmt(Number(left)-14)} ${fmt(Number(y)-10)} l28 6"/>
+      <path d="M${fmt(Number(right)+14)} ${fmt(Number(y)-10)} l-28 6"/>
+    </g>`;
+}
+
 function createMouth(rng,p){
   const y=randRange(rng,202,222);
   const width=randRange(rng,46,72);
@@ -489,6 +518,28 @@ function createMouth(rng,p){
   if(style===1) return `<ellipse cx="160" cy="${fmt(y)}" rx="${fmt(width/2)}" ry="${fmt(randRange(rng,10,18))}" fill="${p.dark}"/><path d="M${fmt(160-width/3)} ${fmt(y)} q${fmt(width/3)} ${fmt(randRange(rng,8,14))} ${fmt(2*width/3)} 0" stroke="${p.accent}" stroke-width="3" fill="none" opacity="0.55"/>`;
   if(style===2) return `<g stroke="${p.dark}" stroke-width="${fmt(randRange(rng,8,12))}" stroke-linecap="round"><path d="M${fmt(160-width/2)} ${fmt(y)} h${fmt(width)}"/><path d="M${fmt(160-width/4)} ${fmt(y+10)} h${fmt(width/2)}" opacity="0.55"/></g>`;
   return `<path d="M${fmt(160-width/2)} ${fmt(y)} c${fmt(width*0.18)} ${fmt(randRange(rng,14,20))} ${fmt(width*0.32)} ${fmt(randRange(rng,18,24))} ${fmt(width/2)} ${fmt(randRange(rng,18,24))} c${fmt(width*0.18)} 0 ${fmt(width*0.32)} -${fmt(randRange(rng,8,16))} ${fmt(width/2)} -${fmt(randRange(rng,18,24))}" stroke="${p.dark}" stroke-width="${fmt(randRange(rng,7,10))}" fill="none" stroke-linecap="round"/>`;
+}
+
+function createSnarlMouth(rng, p){
+  // Wide jagged mouth — wider than normal, corners pulled down
+  const y   = randRange(rng, 208, 220);
+  const w   = randRange(rng, 58, 78);
+  const jag = fmt(randRange(rng, 8, 14));
+  return `
+    <path d="M${fmt(160-w/2)} ${fmt(y)}
+      q${fmt(w*0.15)} ${fmt(randRange(rng,10,16))} ${fmt(w*0.3)} ${jag}
+      l${fmt(w*0.1)} -${fmt(randRange(rng,4,8))}
+      l${fmt(w*0.1)} ${fmt(randRange(rng,6,10))}
+      l${fmt(w*0.1)} -${fmt(randRange(rng,3,7))}
+      q${fmt(w*0.15)} ${fmt(randRange(rng,4,8))} ${fmt(w*0.2)} ${jag}
+      q-${fmt(w*0.2)} -${fmt(randRange(rng,4,8))} -${fmt(w*0.5)} 0
+      Z"
+      fill="${p.dark}" stroke="${p.dark}" stroke-width="2" stroke-linejoin="round"/>
+    <g stroke="${p.accent}" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5">
+      <path d="M${fmt(160-w*0.28)} ${fmt(y+6)} l${fmt(w*0.06)} ${fmt(randRange(rng,8,12))}"/>
+      <path d="M${fmt(160)}         ${fmt(y+4)} l${fmt(w*0.04)} ${fmt(randRange(rng,10,14))}"/>
+      <path d="M${fmt(160+w*0.22)} ${fmt(y+6)} l${fmt(w*0.06)} ${fmt(randRange(rng,8,12))}"/>
+    </g>`;
 }
 
 function createHorns(rng,p){
@@ -610,6 +661,14 @@ function renderMonsterSVG(m, pct=100){
   const art = m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
   const crackColor = 'rgba(0,0,0,0.55)';
   const rng = mulberry32((m.seed ?? 0) ^ 0xdeadbeef);
+  // Expressive state — pick layers based on HP tier
+  const rng2 = mulberry32((m.seed ?? 0) ^ 0xfacecafe);
+  const eyes  = pct <= 20
+    ? createRageEyes(rng2, art.palette)
+    : art.layers.eyes;
+  const mouth = pct <= 40
+    ? createSnarlMouth(rng2, art.palette)
+    : art.layers.mouth;
 
   // Noise dots for surface texture
   const noiseDots = Array.from({length: 28}, () => {
@@ -643,7 +702,7 @@ function renderMonsterSVG(m, pct=100){
     <g fill="${art.palette.body}">${art.layers.body}</g>
     <g fill="url(#${gradId})">${art.layers.body}</g>
     <g>${noiseDots}</g>
-    ${art.layers.eyes}${art.layers.mouth}
+    <g data-eyes="1">${eyes}</g>${mouth}
     ${cracks1}${cracks2}${cracks3}${stars}
   </svg><div class="monster-burn-mark ${m.burned ? 'active' : ''}" aria-hidden="true"></div>`;
 }
@@ -1107,6 +1166,19 @@ function flashMonsterArt(wasCrit){
   setTimeout(()=>dom.monsterArt.classList.remove(cls),480);
 }
 
+function flinchMonster(){
+  const m = state.game?.monster; if(!m) return;
+  const art = m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
+  const svg = dom.monsterArt.querySelector('svg'); if(!svg) return;
+
+  // Temporarily swap eyes to flinch state
+  const eyeGroup = svg.querySelector('g[data-eyes]');
+  if(!eyeGroup) return;
+  const original = eyeGroup.innerHTML;
+  eyeGroup.innerHTML = createFlinchEyes(art.palette);
+  setTimeout(() => { eyeGroup.innerHTML = original; }, 220);
+}
+
 function rippleHitBtn(){
   const btn=document.getElementById('hitBtn'); if(!btn) return;
   btn.classList.remove('do-ripple');
@@ -1186,6 +1258,7 @@ function playHitEffects(damage, wasCrit, moveKey){
     shakeMonster(wasCrit);
     flashMonsterArt(wasCrit);
     tiltPage(wasCrit);
+    flinchMonster();
     const hpFill = document.getElementById('monsterHpFill');
     if(hpFill) pulseClass(hpFill, 'do-flash', 280);
     setTimeout(() => spawnDamageNumber(damage, wasCrit), 55);
