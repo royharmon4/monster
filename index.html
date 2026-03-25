@@ -40,6 +40,11 @@
     .monster-stage { margin-top:0.5rem; display:grid; grid-template-columns:min(260px,40%) 1fr; gap:0.75rem; }
     .monster-art { background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius:18px; border:1px solid var(--line); min-height:180px; display:grid; place-items:center; padding:0.4rem; }
     .monster-art svg { width:min(100%,220px); height:auto; overflow:visible; filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)); transition:transform 400ms ease, filter 400ms ease; }
+    /* ── DAMAGE TIERS ── */
+    .monster-art.tier-2 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.9); }
+    .monster-art.tier-3 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.75) brightness(0.95); transform: rotate(-3deg); }
+    .monster-art.tier-4 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.55) brightness(0.88); animation: wooze 2.4s ease-in-out infinite; }
+    .monster-art.tier-5 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.3) brightness(0.72) hue-rotate(15deg); animation: wooze 1.4s ease-in-out infinite; }
     .monster-art.hurt      svg { transform:rotate(-4deg); filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.8); }
     .monster-art.badly-hurt svg { transform:rotate(-9deg) translateY(6px); filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.5) brightness(0.85); animation:wooze 2.4s ease-in-out infinite; }
     @keyframes wooze { 0%,100%{transform:rotate(-9deg) translateY(6px)} 50%{transform:rotate(-6deg) translateY(3px)} }
@@ -588,14 +593,20 @@ function normalizeKids(kids=KID_DEFAULTS){
 function renderMonsterSVG(m, pct=100){
   const art=m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
   const crackColor = 'rgba(0,0,0,0.55)';
-  const cracks1 = pct <= 66 ? `<g stroke="${crackColor}" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7">${art.damage.light}</g>` : '';
-  const cracks2 = pct <= 33 ? `<g stroke="${crackColor}" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.85">${art.damage.heavy}</g>` : '';
-  const stars = pct <= 33 ? `<g fill="${crackColor}" opacity="0.5">${art.damage.sparks}</g>` : '';
+
+  const cracks1  = pct <= 80 ? `<g stroke="${crackColor}" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.55">${art.damage.light}</g>` : '';
+  const cracks2  = pct <= 60 ? `<g stroke="${crackColor}" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.72">${art.damage.heavy}</g>` : '';
+  const stars    = pct <= 40 ? `<g fill="${crackColor}" opacity="0.45">${art.damage.sparks}</g>` : '';
+  const cracks3  = pct <= 40 ? `<g stroke="${crackColor}" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.88">${art.damage.light}${art.damage.heavy}</g>` : '';
+  const scorch   = pct <= 20 ? `<defs><filter id="blur"><feGaussianBlur stdDeviation="6"/></filter></defs><ellipse cx="160" cy="200" rx="72" ry="52" fill="rgba(0,0,0,0.22)" filter="url(#blur)"/>` : '';
 
   return `<svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${m.name}">
     <ellipse cx="160" cy="288" rx="84" ry="18" fill="rgba(0,0,0,0.22)"/>
-    ${art.layers.extra}${art.layers.horns}${art.layers.arms}<g fill="${art.palette.body}">${art.layers.body}</g>${art.layers.eyes}${art.layers.mouth}
-    ${cracks1}${cracks2}${stars}
+    ${scorch}
+    ${art.layers.extra}${art.layers.horns}${art.layers.arms}
+    <g fill="${art.palette.body}">${art.layers.body}</g>
+    ${art.layers.eyes}${art.layers.mouth}
+    ${cracks1}${cracks2}${cracks3}${stars}
   </svg><div class="monster-burn-mark ${m.burned ? 'active' : ''}" aria-hidden="true"></div>`;
 }
 
@@ -643,8 +654,13 @@ function renderMonster(){
   dom.monsterHpFill.style.width=`${pct}%`;
   dom.monsterHpFill.classList.toggle('low', pct<30);
   // Visual damage state on the art box
-  dom.monsterArt.classList.toggle('hurt',  pct<=66 && pct>33);
-  dom.monsterArt.classList.toggle('badly-hurt', pct<=33 && pct>0);
+  dom.monsterArt.classList.toggle('tier-2', pct <= 80 && pct > 60);
+  dom.monsterArt.classList.toggle('tier-3', pct <= 60 && pct > 40);
+  dom.monsterArt.classList.toggle('tier-4', pct <= 40 && pct > 20);
+  dom.monsterArt.classList.toggle('tier-5', pct <= 20 && pct > 0);
+  // keep hurt/badly-hurt for backwards compat with existing animation classes
+  dom.monsterArt.classList.toggle('hurt',       pct <= 80 && pct > 40);
+  dom.monsterArt.classList.toggle('badly-hurt', pct <= 40 && pct > 0);
 }
 
 function renderFinalBlowPanel(){
@@ -1245,7 +1261,7 @@ function showVictoryModal(kid){
       battleLog:[]
     };
     state.selectedKidId=null; state.selectedMoveKey=null;
-    dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt');
+    dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt','tier-2','tier-3','tier-4','tier-5');
     renderUI();
   });
 }
@@ -1386,7 +1402,7 @@ function resetBattle(){
   };
   state.selectedKidId = null;
   state.selectedMoveKey = null;
-  dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt');
+  dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt','tier-2','tier-3','tier-4','tier-5');
   renderUI();
 }
 
