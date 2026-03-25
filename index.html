@@ -922,8 +922,13 @@ function flashMonsterArt(wasCrit){
 
 function rippleHitBtn(){
   const btn=document.getElementById('hitBtn'); if(!btn) return;
-  pulseClass(btn,'do-ripple');
-  btn.addEventListener('animationend',()=>btn.classList.remove('do-ripple'),{once:true});
+  btn.classList.remove('do-ripple');
+  void btn.offsetWidth;
+  btn.classList.add('do-ripple');
+  btn.addEventListener('animationend', function handler(){
+    btn.classList.remove('do-ripple');
+    btn.removeEventListener('animationend', handler);
+  }, {once:true});
 }
 
 function launchGrenadeProjectile(){
