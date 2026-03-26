@@ -1,3 +1,17 @@
+import { KID_DEFAULTS, MOVE_DEFS, state, createInitialGame, normalizeKids, getKidById as getKidByIdFromState, syncSelectionState } from './state.js';
+import {
+  sanitizeStatsBucket,
+  loadPeriodStats,
+  autoSave,
+  autoLoad,
+  exportSave,
+  importSave,
+  recordStatsForKids,
+  getActivePeriod,
+  setActivePeriod,
+  resetPersistedStats
+} from './storage.js';
+
 /* === Audio/effects: Web Audio engine === */
 /* ── AUDIO ENGINE ── */
 const Audio = (() => {
@@ -113,21 +127,6 @@ const Audio = (() => {
   };
 })();
 
-/* === App state: constants, DOM references, and mutable state === */
-/* ── State ── */
-const KID_DEFAULTS = [
-  { id:'jj',    name:'JJ',    age:10 },
-  { id:'roy5',  name:'Roy5',  age:8  },
-  { id:'drey',  name:'Drey',  age:4  },
-  { id:'sarge', name:'Sarge', age:4  }
-];
-
-const MOVE_DEFS = {
-  attack:  { label:'Attack',  baseDamage:1, critChance:0.1,  critBonus:1, flavor:'Solid everyday win.' },
-  combo:   { label:'Combo',   baseDamage:3, critChance:0.15, critBonus:2, flavor:'Big move for a bigger moment.' },
-  grenade: { label:'Grenade', baseDamage:5, critChance:0.2,  critBonus:3, flavor:'An explosive throw that scorches the boss.', effect:'grenade' }
-};
-
 const THEMES = {
   morning:   { label:'Morning',   flavor:'Weak to getting ready without drama.',           hue:[35,65],   prefixes:['Snooze','Toothbrush','Pajama','Latebell','Alarm','Breakfast','Backpack','Sock'],  types:['Goblin','Troll','Hydra','Wraith','Ogre','Slime'] },
   chores:    { label:'Chores',    flavor:'Weak to ownership, cleanup, and follow-through.', hue:[170,215], prefixes:['Clutter','Dust','Trash','Sock','Laundry','Crumb','Mess','Mop'],                types:['Golem','Beast','Dragon','Troll','Slime','Ogre'] },
@@ -152,17 +151,6 @@ const dom = {
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
   toast:            document.getElementById('toast')
 };
-
-const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:null };
-
-function createInitialGame(){
-  return {
-    title:'Boss Battle',
-    monster:createMonsterSeeded(),
-    kids:KID_DEFAULTS.map(k=>({...k,damage:0,monsterDamage:0,kills:0})),
-    battleLog:[]
-  };
-}
 
 /* === Monster generation: RNG helpers + procedural monster builders === */
 /* ── RNG ── */
@@ -374,13 +362,6 @@ function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
     art:buildMonsterArt(seed, themeKey) };
 }
 
-function normalizeKids(kids=KID_DEFAULTS){
-  return KID_DEFAULTS.map(def=>{
-    const saved = kids.find(k=>k.id===def.id) ?? {};
-    return { ...def, ...saved, damage:Number(saved?.damage||0), monsterDamage:Number(saved?.monsterDamage||0), kills:Number(saved?.kills||0) };
-  });
-}
-
 /* === SVG rendering: monster art + overlays === */
 /* ── SVG ── */
 function renderMonsterSVG(m, pct=100){
@@ -480,7 +461,7 @@ function showToast(msg, tone=''){
 }
 
 /* ── Helpers ── */
-function getKidById(id){ return state.game?.kids?.find(k=>k.id===id)??null; }
+function getKidById(id){ return getKidByIdFromState(state, id); }
 
 function getMonsterLeaderIds(game=state.game){
   const kids=normalizeKids(game?.kids||[]);
@@ -607,52 +588,8 @@ function renderMovePanel(){
 }
 
 /* === Leaderboard: period filtering + stat aggregation === */
-/* ── PERSISTENT STATS ── */
-let activePeriod = 'day';
-
-// In-memory stats store: { day: { '2026-3-22': { JJ: {kills,damage}, ... } }, week: {...}, alltime: {...} }
-let persistedStats = { day: {}, week: {}, alltime: {} };
-
-function sanitizeStatsBucket(stats) {
-  if (!stats || typeof stats !== 'object') return {};
-  return Object.fromEntries(
-    Object.entries(stats).map(([name, values]) => [name, {
-      kills: Number(values?.kills || 0),
-      damage: Number(values?.damage || 0)
-    }])
-  );
-}
-
-function sanitizePersistedStats(stats) {
-  const safe = { day: {}, week: {}, alltime: {} };
-  if (!stats || typeof stats !== 'object') return safe;
-
-  ['day', 'week'].forEach(period => {
-    const buckets = stats[period];
-    if (!buckets || typeof buckets !== 'object') return;
-    safe[period] = Object.fromEntries(
-      Object.entries(buckets).map(([key, value]) => [key, sanitizeStatsBucket(value)])
-    );
-  });
-
-  safe.alltime = sanitizeStatsBucket(stats.alltime);
-  return safe;
-}
-
-function syncSelectionState() {
-  const hasSelectedKid = state.selectedKidId && getKidById(state.selectedKidId);
-  if (!hasSelectedKid) {
-    state.selectedKidId = null;
-    state.selectedMoveKey = null;
-  }
-
-  if (state.selectedMoveKey && !MOVE_DEFS[state.selectedMoveKey]) {
-    state.selectedMoveKey = null;
-  }
-}
-
 function getLeaderboardStats() {
-  const stats = sanitizeStatsBucket(loadPeriodStats(activePeriod));
+  const stats = sanitizeStatsBucket(loadPeriodStats(getActivePeriod()));
   const currentKids = normalizeKids(state.game?.kids ?? []);
   const shouldOverlayCurrentMonster = Boolean(state.game?.monster) && !state.game.monster.finalBlowBy;
 
@@ -664,163 +601,6 @@ function getLeaderboardStats() {
   }
 
   return stats;
-}
-
-const SOUTH_CAROLINA_TIME_ZONE = 'America/New_York';
-
-function getSouthCarolinaDateParts(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: SOUTH_CAROLINA_TIME_ZONE,
-    weekday: 'short',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric'
-  }).formatToParts(now);
-
-  const values = Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
-  const weekdayIndex = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[values.weekday] ?? 0;
-
-  return {
-    year: Number(values.year),
-    month: Number(values.month),
-    day: Number(values.day),
-    weekdayIndex
-  };
-}
-
-function periodKey(period) {
-  const nowParts = getSouthCarolinaDateParts();
-  if (period === 'day') return `${nowParts.year}-${nowParts.month - 1}-${nowParts.day}`;
-  if (period === 'week') {
-    const daysSinceMonday = (nowParts.weekdayIndex + 6) % 7;
-    const weekStartUtcMs = Date.UTC(nowParts.year, nowParts.month - 1, nowParts.day) - (daysSinceMonday * 86400000);
-    const weekStart = new Date(weekStartUtcMs);
-    return `${weekStart.getUTCFullYear()}-${weekStart.getUTCMonth()}-${weekStart.getUTCDate()}`;
-  }
-  return 'alltime';
-}
-
-function loadPeriodStats(period) {
-  if (period === 'alltime') return persistedStats.alltime || {};
-  const key = periodKey(period);
-  return (persistedStats[period] || {})[key] || {};
-}
-
-function savePeriodStats(period, stats) {
-  if (period === 'alltime') { persistedStats.alltime = stats; autoSave(); return; }
-  const key = periodKey(period);
-  if (!persistedStats[period]) persistedStats[period] = {};
-  persistedStats[period][key] = stats;
-  autoSave();
-}
-
-/* === Storage/save-load: local autosave + JSON import/export === */
-/* ── AUTO SAVE / LOAD ── */
-const AUTO_SAVE_KEY = 'bossbattle-autosave';
-
-function sanitizeGame(game) {
-  if (!game || typeof game !== 'object') return createInitialGame();
-  const kids = normalizeKids(Array.isArray(game.kids) ? game.kids : KID_DEFAULTS);
-  const monster = game.monster && typeof game.monster === 'object'
-    ? { ...createMonsterSeeded(0), ...game.monster, hp: Number(game.monster.hp ?? game.monster.maxHp ?? 0), maxHp: Number(game.monster.maxHp ?? game.monster.hp ?? 0) }
-    : createMonsterSeeded();
-  monster.art = monster.art || buildMonsterArt(monster.seed ?? 0, monster.themeKey);
-  monster.hp = Math.max(0, Math.min(monster.maxHp || 0, monster.hp || 0));
-  return {
-    title: typeof game.title === 'string' && game.title.trim() ? game.title : 'Boss Battle',
-    monster,
-    kids,
-    battleLog: Array.isArray(game.battleLog) ? game.battleLog.slice(0, 24) : []
-  };
-}
-
-function autoSave() {
-  try {
-    localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify({
-      version: 2,
-      stats: persistedStats,
-      game: state.game,
-      selectedKidId: state.selectedKidId,
-      selectedMoveKey: state.selectedMoveKey,
-      activePeriod,
-      savedAt: new Date().toISOString()
-    }));
-  } catch {}
-}
-
-function autoLoad() {
-  try {
-    const raw = localStorage.getItem(AUTO_SAVE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    persistedStats = sanitizePersistedStats(data?.stats);
-    if (data?.game) { state.game = sanitizeGame(data.game); }
-    if (typeof data?.selectedKidId === 'string') { state.selectedKidId = data.selectedKidId; }
-    if (typeof data?.selectedMoveKey === 'string') { state.selectedMoveKey = data.selectedMoveKey; }
-    if (['day','week','alltime'].includes(data?.activePeriod)) { activePeriod = data.activePeriod; }
-    syncSelectionState();
-  } catch {}
-}
-
-/* ── SAVE / LOAD JSON ── */
-function exportSave() {
-  const saveData = {
-    version: 2,
-    stats: persistedStats,
-    game: state.game,
-    selectedKidId: state.selectedKidId,
-    selectedMoveKey: state.selectedMoveKey,
-    activePeriod,
-    exportedAt: new Date().toISOString()
-  };
-  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  const d = new Date();
-  a.download = `bossbattle-save-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  showToast('Progress saved!', 'success');
-}
-
-function importSave(file) {
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data?.game || !data?.stats) throw new Error('Invalid save file');
-      persistedStats = sanitizePersistedStats(data?.stats);
-      if (data.game) state.game = sanitizeGame(data.game);
-      if (typeof data.selectedKidId === 'string') state.selectedKidId = data.selectedKidId;
-      if (typeof data.selectedMoveKey === 'string') state.selectedMoveKey = data.selectedMoveKey;
-      if (['day','week','alltime'].includes(data.activePeriod)) activePeriod = data.activePeriod;
-      syncSelectionState();
-      document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === activePeriod));
-      renderUI();
-      showToast('Progress loaded!', 'success');
-    } catch {
-      showToast('Could not read that save file.', 'warning');
-    }
-  };
-  reader.readAsText(file);
-}
-
-function recordStatsForKids(killerName, allKids) {
-  ['day','week','alltime'].forEach(period => {
-    const stats = loadPeriodStats(period);
-    // Record kill for the finisher
-    if (!stats[killerName]) stats[killerName] = { kills:0, damage:0 };
-    stats[killerName].kills = (stats[killerName].kills||0) + 1;
-    // Record damage for everyone who hit
-    allKids.forEach(kid => {
-      if ((kid.monsterDamage||0) > 0) {
-        if (!stats[kid.name]) stats[kid.name] = { kills:0, damage:0 };
-        stats[kid.name].damage = (stats[kid.name].damage||0) + kid.monsterDamage;
-      }
-    });
-    savePeriodStats(period, stats);
-  });
 }
 
 function renderLeaderboard() {
@@ -847,7 +627,7 @@ function renderLeaderboard() {
 function renderUI(){
   dom.appTitle.textContent=state.game?.title??'Boss Battle';
   renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard();
-  autoSave();
+  autoSave(state);
   positionBurnMark();
 }
 
@@ -1295,7 +1075,7 @@ function deliverFinalBlow(kidId){
     monster:{...m,finalBlowBy:kidId,finalBlowAt:new Date().toISOString()},
     kids:state.game.kids.map(k=>k.id===kidId?{...k,kills:(k.kills||0)+1}:{...k})
   };
-  recordStatsForKids(kid.name, state.game.kids);
+  recordStatsForKids(kid.name, state.game.kids, state);
   Audio.finalBlow();
   renderUI();
   const w = getKidById(kidId);
@@ -1324,7 +1104,7 @@ function resetBattle(){
 }
 
 function resetScores(){
-  persistedStats = { day: {}, week: {}, alltime: {} };
+  resetPersistedStats();
   if (state.game) {
     state.game = {
       ...state.game,
@@ -1343,16 +1123,36 @@ function resetScores(){
   showToast('Scores reset.', 'success');
 }
 
+const storageDeps = {
+  state,
+  createInitialGame,
+  createMonsterSeeded,
+  buildMonsterArt,
+  normalizeKids,
+  kidDefaults: KID_DEFAULTS,
+  syncSelectionState,
+  getKidById,
+  moveDefs: MOVE_DEFS,
+  renderUI,
+  showToast,
+  onActivePeriodChange: (period) => {
+    document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === period));
+  }
+};
+
 /* === Boot/event wiring: startup + listeners === */
 /* ── Boot ── */
 dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
-document.getElementById('saveBtn').addEventListener('click', exportSave);
+document.getElementById('saveBtn').addEventListener('click', () => exportSave(state, showToast));
 document.getElementById('loadInput').addEventListener('change', e => {
-  if (e.target.files[0]) { importSave(e.target.files[0]); e.target.value = ''; }
+  if (e.target.files[0]) {
+    importSave(e.target.files[0], storageDeps);
+    e.target.value = '';
+  }
 });
 document.querySelectorAll('.lb-tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    activePeriod = btn.dataset.period;
+    setActivePeriod(btn.dataset.period);
     document.querySelectorAll('.lb-tab').forEach(b => b.classList.toggle('active', b===btn));
     renderLeaderboard();
   });
@@ -1363,7 +1163,7 @@ dom.resetScoresBtn.addEventListener('click', resetScores);
 dom.monsterArt.addEventListener('pointerdown', pokeMonster);
 document.addEventListener('pointerdown', () => Audio.unlock(), { once: true });
 
-state.game = createInitialGame();
-autoLoad();
-document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === activePeriod));
+state.game = createInitialGame(createMonsterSeeded);
+autoLoad(state, storageDeps);
+document.querySelectorAll('.lb-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.period === getActivePeriod()));
 renderUI();
