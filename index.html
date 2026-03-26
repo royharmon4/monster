@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Boss Battle — Preview v3</title>
   <style>
+    /* === CSS: Design tokens, layout, and component styling === */
     :root {
       color-scheme: dark;
       --bg: #0f1221; --panel: #171b2f; --panel-2: #1e2440;
@@ -37,6 +38,7 @@
     .pill.muted { background:rgba(255,255,255,0.06); border-color:var(--line); }
     .preview-badge { display:inline-flex; align-items:center; gap:0.4rem; border-radius:999px; padding:0.3rem 0.75rem; background:rgba(255,209,102,0.15); border:1px solid rgba(255,209,102,0.35); color:var(--warning); font-size:0.78rem; font-weight:600; }
 
+    /* === CSS: Monster stage + battle visual states === */
     .monster-stage { margin-top:0.5rem; display:grid; grid-template-columns:min(260px,40%) 1fr; gap:0.75rem; }
     .monster-art { background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius:18px; border:1px solid var(--line); min-height:180px; display:grid; place-items:center; padding:0.4rem; position:relative; overflow:hidden; isolation:isolate; }
     .monster-art svg { width:min(100%,220px); height:auto; overflow:visible; filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)); transition:transform 400ms ease, filter 400ms ease; position:relative; z-index:1; }
@@ -87,6 +89,7 @@
     @keyframes finalPulse { 0%,100%{box-shadow:0 0 20px rgba(255,111,127,0.3)} 50%{box-shadow:0 0 50px rgba(255,111,127,0.8)} }
     .final-blow-note { color:var(--muted); font-size:0.95rem; }
 
+    /* === CSS: Audio/effects-driven animation visuals === */
     /* ── DEATH SEQUENCE ── */
     /* Shockwave rings */
     .shockwave { position:fixed; pointer-events:none; z-index:210; border-radius:50%; border:4px solid rgba(255,255,255,0.9); animation:shockwaveExpand 600ms cubic-bezier(.2,.6,.4,1) forwards; }
@@ -335,6 +338,7 @@
       .burn-mark-overlay { opacity:0.35; }
       .burn-mark-overlay ellipse { filter:none; }
     }
+    /* === CSS: Leaderboard and score UI === */
     .leaderboard-card { border-radius:16px; background:var(--panel-2); border:1px solid var(--line); padding:0.95rem; }
     .score-row { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem; }
     .score-chip { display:inline-flex; align-items:center; gap:0.35rem; padding:0.32rem 0.6rem; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid var(--line); color:var(--muted); font-size:0.85rem; }
@@ -416,6 +420,7 @@
 <div id="toast" class="toast hidden"></div>
 
 <script>
+/* === Audio/effects: Web Audio engine === */
 /* ── AUDIO ENGINE ── */
 const Audio = (() => {
   let ctx = null;
@@ -530,6 +535,7 @@ const Audio = (() => {
   };
 })();
 
+/* === App state: constants, DOM references, and mutable state === */
 /* ── State ── */
 const KID_DEFAULTS = [
   { id:'jj',    name:'JJ',    age:10 },
@@ -580,6 +586,7 @@ function createInitialGame(){
   };
 }
 
+/* === Monster generation: RNG helpers + procedural monster builders === */
 /* ── RNG ── */
 function mulberry32(a){ return ()=>{ let t=(a+=0x6D2B79F5); t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return((t^(t>>>14))>>>0)/4294967296; }; }
 function pick(list,rng){ return list[Math.floor(rng()*list.length)]; }
@@ -796,6 +803,7 @@ function normalizeKids(kids=KID_DEFAULTS){
   });
 }
 
+/* === SVG rendering: monster art + overlays === */
 /* ── SVG ── */
 function renderMonsterSVG(m, pct=100){
   const art = m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
@@ -1020,6 +1028,7 @@ function renderMovePanel(){
   document.getElementById('backBtn').addEventListener('click',()=>{ state.selectedMoveKey=null; renderUI(); });
 }
 
+/* === Leaderboard: period filtering + stat aggregation === */
 /* ── PERSISTENT STATS ── */
 let activePeriod = 'day';
 
@@ -1127,6 +1136,7 @@ function savePeriodStats(period, stats) {
   autoSave();
 }
 
+/* === Storage/save-load: local autosave + JSON import/export === */
 /* ── AUTO SAVE / LOAD ── */
 const AUTO_SAVE_KEY = 'bossbattle-autosave';
 
@@ -1263,6 +1273,7 @@ function renderUI(){
   positionBurnMark();
 }
 
+/* === Audio/effects: combat feedback and motion effects === */
 /* ── HIT ANIMATIONS ── */
 function pulseClass(el,cls,dur){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); if(dur) setTimeout(()=>el.classList.remove(cls),dur); }
 
@@ -1466,6 +1477,7 @@ function playHitEffects(damage, wasCrit, moveKey){
   runImpactEffects();
 }
 
+/* === Battle logic: hit resolution, final blow, reset/heal flows === */
 /* ── Game logic ── */
 function handleHit(){
   const kid=getKidById(state.selectedKidId);
@@ -1753,6 +1765,7 @@ function resetScores(){
   showToast('Scores reset.', 'success');
 }
 
+/* === Boot/event wiring: startup + listeners === */
 /* ── Boot ── */
 dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
 document.getElementById('saveBtn').addEventListener('click', exportSave);
