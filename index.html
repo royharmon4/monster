@@ -405,7 +405,7 @@ const Audio = (() => {
 
   function getCtx(){
     if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if(ctx.state === 'suspended') ctx.resume();
+    if(ctx.state !== 'running') ctx.resume();
     return ctx;
   }
 
@@ -450,6 +450,7 @@ const Audio = (() => {
   }
 
   return {
+    unlock(){ getCtx(); },
     hit(){
       const out = master(0.16);
       osc('sine', 90, 0, 0.12, 1, out);
@@ -1718,12 +1719,7 @@ dom.resetBattleBtn.addEventListener('click', resetBattle);
 dom.bottomResetBattleBtn.addEventListener('click', resetBattle);
 dom.resetScoresBtn.addEventListener('click', resetScores);
 dom.monsterArt.addEventListener('pointerdown', pokeMonster);
-document.addEventListener('pointerdown', () => {
-  if(window.AudioContext || window.webkitAudioContext){
-    const tmp = new (window.AudioContext || window.webkitAudioContext)();
-    tmp.resume().then(() => tmp.close());
-  }
-}, { once: true });
+document.addEventListener('pointerdown', () => Audio.unlock(), { once: true });
 
 state.game = createInitialGame();
 autoLoad();
