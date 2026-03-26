@@ -1,4 +1,5 @@
-/* ── Render ── */
+/** UI renderer: draws the monster scene, controls, and leaderboard. */
+
 function createBurnMarkOverlay(){
   return `<div id="burnMarkOverlay" class="burn-mark-overlay" aria-hidden="true">
     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
@@ -157,7 +158,6 @@ export function createUIRenderer(deps) {
     document.getElementById('backBtn').addEventListener('click', onBackFromMove);
   }
 
-  /* === Leaderboard: period filtering + stat aggregation === */
   function renderLeaderboard() {
     const stats = getLeaderboardStats(state.game, normalizeKids);
     const kids = kidDefaults.map(k => {
@@ -187,13 +187,8 @@ export function createUIRenderer(deps) {
   }
 
   return {
-    renderMonster,
-    renderFinalBlowPanel,
-    renderKidButtons,
-    renderMovePanel,
     renderLeaderboard,
     renderUI,
-    positionBurnMark,
     triggerBurnMarkAppear
   };
 }

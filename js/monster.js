@@ -1,5 +1,4 @@
-/* === Monster generation: RNG helpers + procedural monster builders === */
-/* ── RNG ── */
+/** Monster generation and SVG rendering utilities. */
 export const THEMES = {
   morning:   { label:'Morning',   flavor:'Weak to getting ready without drama.',           hue:[35,65],   prefixes:['Snooze','Toothbrush','Pajama','Latebell','Alarm','Breakfast','Backpack','Sock'],  types:['Goblin','Troll','Hydra','Wraith','Ogre','Slime'] },
   chores:    { label:'Chores',    flavor:'Weak to ownership, cleanup, and follow-through.', hue:[170,215], prefixes:['Clutter','Dust','Trash','Sock','Laundry','Crumb','Mess','Mop'],                types:['Golem','Beast','Dragon','Troll','Slime','Ogre'] },
@@ -215,8 +214,6 @@ export function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
     art:buildMonsterArt(seed, themeKey) };
 }
 
-/* === SVG rendering: monster art + overlays === */
-/* ── SVG ── */
 export function renderMonsterSVG(m, pct=100){
   const art = m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
   const crackColor = 'rgba(0,0,0,0.55)';
