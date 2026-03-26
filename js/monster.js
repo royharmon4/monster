@@ -206,6 +206,29 @@ export function buildMonsterArt(seed, themeKey){
   };
 }
 
+function hasRenderableArtShape(art){
+  const palette = art?.palette;
+  const layers = art?.layers;
+  const damage = art?.damage;
+  return Boolean(
+    art &&
+    typeof art === 'object' &&
+    palette &&
+    typeof palette === 'object' &&
+    layers &&
+    typeof layers === 'object' &&
+    damage &&
+    typeof damage === 'object' &&
+    ['body','eyes','mouth','horns','arms','extra'].every(key => typeof layers[key] === 'string') &&
+    ['light','heavy','sparks'].every(key => typeof damage[key] === 'string')
+  );
+}
+
+function getSafeMonsterArt(m){
+  if (hasRenderableArtShape(m?.art)) return m.art;
+  return buildMonsterArt(m?.seed ?? 0, m?.themeKey);
+}
+
 export function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
   const rng=mulberry32(seed), themeKey=pick(Object.keys(THEMES),rng), theme=THEMES[themeKey];
   const maxHp=30+Math.floor(rng()*16);
@@ -215,7 +238,7 @@ export function createMonsterSeeded(seed=Math.floor(Date.now()%1000000)){
 }
 
 export function renderMonsterSVG(m, pct=100){
-  const art = m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
+  const art = getSafeMonsterArt(m);
   const crackColor = 'rgba(0,0,0,0.55)';
   const rng = mulberry32((m.seed ?? 0) ^ 0xdeadbeef);
   // Expressive state — pick layers based on HP tier
@@ -265,7 +288,7 @@ export function renderMonsterSVG(m, pct=100){
 }
 
 export function renderDeadMonsterSVG(m){
-  const art=m.art || buildMonsterArt(m.seed ?? 0, m.themeKey);
+  const art=getSafeMonsterArt(m);
   const p=art.palette;
   const xEyes=`<g stroke="${p.dark}" stroke-width="9" stroke-linecap="round" class="x-eyes">
     <line x1="118" y1="146" x2="138" y2="166"/><line x1="138" y1="146" x2="118" y2="166"/>

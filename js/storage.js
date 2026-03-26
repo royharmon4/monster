@@ -92,14 +92,53 @@ export function savePeriodStats(period, stats, stateObj) {
 
 const AUTO_SAVE_KEY = 'bossbattle-autosave';
 
+function hasValidMonsterArt(art) {
+  const layers = art?.layers;
+  const damage = art?.damage;
+  return Boolean(
+    art &&
+    typeof art === 'object' &&
+    art.palette &&
+    typeof art.palette === 'object' &&
+    layers &&
+    typeof layers === 'object' &&
+    damage &&
+    typeof damage === 'object' &&
+    ['body','eyes','mouth','horns','arms','extra'].every(key => typeof layers[key] === 'string') &&
+    ['light','heavy','sparks'].every(key => typeof damage[key] === 'string')
+  );
+}
+
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export function sanitizeGame(game, { createInitialGame, createMonsterSeeded, buildMonsterArt, normalizeKids, kidDefaults }) {
   if (!game || typeof game !== 'object') return createInitialGame(createMonsterSeeded);
   const kids = normalizeKids(Array.isArray(game.kids) ? game.kids : kidDefaults);
-  const monster = game.monster && typeof game.monster === 'object'
-    ? { ...createMonsterSeeded(0), ...game.monster, hp: Number(game.monster.hp ?? game.monster.maxHp ?? 0), maxHp: Number(game.monster.maxHp ?? game.monster.hp ?? 0) }
-    : createMonsterSeeded();
-  monster.art = monster.art || buildMonsterArt(monster.seed ?? 0, monster.themeKey);
-  monster.hp = Math.max(0, Math.min(monster.maxHp || 0, monster.hp || 0));
+  const fallbackMonster = createMonsterSeeded();
+  const rawMonster = game.monster && typeof game.monster === 'object' ? game.monster : {};
+  const rawSeed = toFiniteNumber(rawMonster.seed);
+  const baseMonster = createMonsterSeeded(rawSeed ?? fallbackMonster.seed);
+  const monster = { ...baseMonster, ...rawMonster };
+  monster.seed = rawSeed ?? baseMonster.seed;
+
+  monster.name = typeof monster.name === 'string' && monster.name.trim() ? monster.name : baseMonster.name;
+  monster.themeKey = typeof monster.themeKey === 'string' && monster.themeKey.trim() ? monster.themeKey : baseMonster.themeKey;
+  monster.flavor = typeof monster.flavor === 'string' ? monster.flavor : baseMonster.flavor;
+
+  const maxHp = toFiniteNumber(rawMonster.maxHp ?? monster.maxHp);
+  monster.maxHp = maxHp && maxHp > 0 ? Math.round(maxHp) : baseMonster.maxHp;
+
+  const hp = toFiniteNumber(rawMonster.hp ?? monster.hp);
+  const shouldReviveBrokenZeroState = hp === 0 && (!maxHp || maxHp <= 0) && !rawMonster.finalBlowBy;
+  monster.hp = shouldReviveBrokenZeroState ? monster.maxHp : Math.max(0, Math.min(monster.maxHp, Math.round(hp ?? monster.maxHp)));
+
+  if (!hasValidMonsterArt(rawMonster.art)) {
+    monster.art = buildMonsterArt(monster.seed ?? baseMonster.seed, monster.themeKey);
+  }
+
   return {
     title: typeof game.title === 'string' && game.title.trim() ? game.title : 'Boss Battle',
     monster,
