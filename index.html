@@ -38,8 +38,21 @@
     .preview-badge { display:inline-flex; align-items:center; gap:0.4rem; border-radius:999px; padding:0.3rem 0.75rem; background:rgba(255,209,102,0.15); border:1px solid rgba(255,209,102,0.35); color:var(--warning); font-size:0.78rem; font-weight:600; }
 
     .monster-stage { margin-top:0.5rem; display:grid; grid-template-columns:min(260px,40%) 1fr; gap:0.75rem; }
-    .monster-art { background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius:18px; border:1px solid var(--line); min-height:180px; display:grid; place-items:center; padding:0.4rem; }
-    .monster-art svg { width:min(100%,220px); height:auto; overflow:visible; filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)); transition:transform 400ms ease, filter 400ms ease; }
+    .monster-art { background:linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02)); border-radius:18px; border:1px solid var(--line); min-height:180px; display:grid; place-items:center; padding:0.4rem; position:relative; overflow:hidden; isolation:isolate; }
+    .monster-art svg { width:min(100%,220px); height:auto; overflow:visible; filter:drop-shadow(0 14px 20px rgba(0,0,0,0.28)); transition:transform 400ms ease, filter 400ms ease; position:relative; z-index:1; }
+    .burn-mark-overlay {
+      position:absolute;
+      pointer-events:none;
+      z-index:0;
+      display:none;
+      width:62%;
+      height:34%;
+      left:50%;
+      top:68%;
+      transform:translate(-50%, -50%);
+      opacity:0;
+    }
+    .burn-mark-overlay svg { width:100%; height:100%; overflow:visible; filter:none; transition:none; z-index:0; }
     /* ── DAMAGE TIERS ── */
     .monster-art.tier-2 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.9); }
     .monster-art.tier-3 svg { filter: drop-shadow(0 14px 20px rgba(0,0,0,0.28)) saturate(0.75) brightness(0.95); transform: rotate(-3deg); }
@@ -267,7 +280,7 @@
     }
 
     /* ── MONSTER ART OVERLAY FLASH ── */
-    .monster-art{ position:relative; overflow:visible; }
+    .monster-art{ position:relative; overflow:hidden; isolation:isolate; }
     .monster-art::after{ content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; opacity:0; }
     @keyframes burnMarkReveal {
       0%   { opacity: 0; transform: scale(0.3) rotate(-16deg); }
@@ -319,6 +332,8 @@
       .move-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
       .shell { padding: 12px 0 40px; }
       .topbar { flex-wrap: wrap; }
+      .burn-mark-overlay { opacity:0.35; }
+      .burn-mark-overlay ellipse { filter:none; }
     }
     .leaderboard-card { border-radius:16px; background:var(--panel-2); border:1px solid var(--line); padding:0.95rem; }
     .score-row { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.4rem; }
@@ -338,25 +353,6 @@
   </style>
 </head>
 <body>
-<div id="burnMarkOverlay" aria-hidden="true" style="
-  position: fixed;
-  pointer-events: none;
-  z-index: 50;
-  display: none;
-">
-  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible">
-    <defs>
-      <radialGradient id="burnGrad" cx="50%" cy="50%" r="50%">
-        <stop offset="0%"   stop-color="rgba(12,8,7,0.9)"/>
-        <stop offset="35%"  stop-color="rgba(50,24,18,0.72)"/>
-        <stop offset="65%"  stop-color="rgba(255,120,64,0.28)"/>
-        <stop offset="100%" stop-color="rgba(255,120,64,0)"/>
-      </radialGradient>
-      <filter id="burnBlur"><feGaussianBlur stdDeviation="3"/></filter>
-    </defs>
-    <ellipse cx="50" cy="50" rx="50" ry="50" fill="url(#burnGrad)" filter="url(#burnBlur)" opacity="0.82"/>
-  </svg>
-</div>
 <div id="app" class="shell">
   <header class="topbar">
     <h1 id="appTitle">Boss Battle</h1>
@@ -570,8 +566,7 @@ const dom = {
   healMonsterBtn:   document.getElementById('healMonsterBtn'),
   resetBattleBtn:   document.getElementById('resetBattleBtn'),
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
-  toast:            document.getElementById('toast'),
-  burnMarkOverlay:  document.getElementById('burnMarkOverlay')
+  toast:            document.getElementById('toast')
 };
 
 const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:null };
@@ -852,8 +847,26 @@ function renderMonsterSVG(m, pct=100){
   </svg>`;
 }
 
+function createBurnMarkOverlay(){
+  return `<div id="burnMarkOverlay" class="burn-mark-overlay" aria-hidden="true">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <defs>
+        <radialGradient id="burnGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="rgba(12,8,7,0.9)"/>
+          <stop offset="35%"  stop-color="rgba(50,24,18,0.72)"/>
+          <stop offset="65%"  stop-color="rgba(255,120,64,0.28)"/>
+          <stop offset="100%" stop-color="rgba(255,120,64,0)"/>
+        </radialGradient>
+        <filter id="burnBlur"><feGaussianBlur stdDeviation="3"/></filter>
+      </defs>
+      <ellipse cx="50" cy="50" rx="50" ry="50" fill="url(#burnGrad)" filter="url(#burnBlur)" opacity="0.82"/>
+    </svg>
+  </div>`;
+}
+
 function positionBurnMark() {
-  const overlay = dom.burnMarkOverlay;
+  const overlay = dom.monsterArt.querySelector('#burnMarkOverlay');
+  if (!overlay) return;
   const m = state.game?.monster;
 
   if (!m?.burned || dom.monsterArt.classList.contains('is-dead')) {
@@ -861,18 +874,12 @@ function positionBurnMark() {
     return;
   }
 
-  const rect = dom.monsterArt.getBoundingClientRect();
-  const w = rect.width  * 0.62;
-  const h = rect.height * 0.34;
-  overlay.style.display  = 'block';
-  overlay.style.left     = `${rect.left + (rect.width - w) * 0.5}px`;
-  overlay.style.top      = `${rect.top  +  rect.height * 0.52}px`;
-  overlay.style.width    = `${w}px`;
-  overlay.style.height   = `${h}px`;
+  overlay.style.display = 'block';
 }
 
 function triggerBurnMarkAppear() {
-  const overlay = dom.burnMarkOverlay;
+  const overlay = dom.monsterArt.querySelector('#burnMarkOverlay');
+  if (!overlay) return;
   overlay.style.animation = 'none';
   void overlay.offsetWidth;
   overlay.style.animation = 'burnMarkReveal 650ms ease forwards';
@@ -917,7 +924,7 @@ function renderMonster(){
   const pct=Math.max(0,Math.min(100,(m.hp/m.maxHp)*100));
   dom.monsterName.textContent=m.name;
   dom.monsterThemePill.textContent=THEMES[m.themeKey]?.label??m.themeKey;
-  dom.monsterArt.innerHTML=renderMonsterSVG(m,pct);
+  dom.monsterArt.innerHTML=`${createBurnMarkOverlay()}${renderMonsterSVG(m,pct)}`;
   dom.monsterHpText.textContent=`${m.hp} / ${m.maxHp}`;
   dom.monsterHpFill.style.width=`${pct}%`;
   dom.monsterHpFill.classList.toggle('low', pct<30);
