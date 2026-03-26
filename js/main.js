@@ -1,4 +1,5 @@
 import { KID_DEFAULTS, MOVE_DEFS, state, createInitialGame, normalizeKids, getKidById as getKidByIdFromState, syncSelectionState } from './state.js';
+import { getMonsterLeaders, createBattleController } from './battle.js';
 import {
   sanitizeStatsBucket,
   loadPeriodStats,
@@ -177,28 +178,6 @@ function showToast(msg, tone=''){
 /* ── Helpers ── */
 function getKidById(id){ return getKidByIdFromState(state, id); }
 
-function getMonsterLeaderIds(game=state.game){
-  const kids=normalizeKids(game?.kids||[]);
-  const high=Math.max(0,...kids.map(k=>Number(k.monsterDamage||0)));
-  if(high<=0) return [];
-  const tied=kids.filter(k=>Number(k.monsterDamage||0)===high).map(k=>k.id);
-  if(tied.length===1) return tied;
-  // Break tie: walk log oldest-first, whoever accumulated to `high` first wins
-  const log=[...(game?.battleLog||[])].reverse();
-  const running={};
-  for(const entry of log){
-    if(!tied.includes(entry.kidId)) continue;
-    running[entry.kidId]=(running[entry.kidId]||0)+entry.damage;
-    if(running[entry.kidId]>=high) return [entry.kidId];
-  }
-  return [tied[0]]; // fallback
-}
-
-function getMonsterLeaders(game=state.game){
-  const ids=getMonsterLeaderIds(game);
-  return ids.map(id=>getKidById(id)||normalizeKids(game?.kids||[]).find(k=>k.id===id)).filter(Boolean);
-}
-
 /* ── Render ── */
 function renderMonster(){
   const m=state.game?.monster; if(!m||dom.monsterArt.classList.contains('is-dead')) return;
@@ -225,7 +204,7 @@ function renderFinalBlowPanel(){
   const m=state.game?.monster; if(!m) return;
   if((m.hp||0)>0){ dom.finalBlowPanel.classList.add('hidden'); dom.finalBlowPanel.innerHTML=''; return; }
 
-  const leaders=getMonsterLeaders();
+  const leaders=getMonsterLeaders(state.game, normalizeKids, getKidById);
 
   if(m.finalBlowBy){
     const winner=getKidById(m.finalBlowBy);
@@ -243,7 +222,7 @@ function renderFinalBlowPanel(){
 
   dom.finalBlowPanel.querySelectorAll('[data-final-kid-id]').forEach(btn=>{
     if(!btn.dataset.finalKidId) return;
-    btn.addEventListener('click',()=>deliverFinalBlow(btn.dataset.finalKidId));
+    btn.addEventListener('click',()=>battle.deliverFinalBlow(btn.dataset.finalKidId));
   });
 }
 
@@ -270,7 +249,7 @@ function renderMovePanel(){
   }
 
   if((m?.hp||0)<=0){
-    const leaders=getMonsterLeaders();
+    const leaders=getMonsterLeaders(state.game, normalizeKids, getKidById);
     const txt=leaders.length===1?`${leaders[0].name} earned the final blow.`:leaders.length>1?`${leaders.map(l=>l.name).join(' and ')} are tied.`:'';
     dom.movePanel.innerHTML=txt?`<div class="card"><p class="muted">${txt}</p></div>`:'';
     return;
@@ -297,7 +276,7 @@ function renderMovePanel(){
       <button id="hitBtn" class="hit-btn" type="button">HIT</button>
       <div class="row gap-sm"><button id="backBtn" class="ghost" type="button">← Back</button></div>
     </div>`;
-  document.getElementById('hitBtn').addEventListener('click', handleHit);
+  document.getElementById('hitBtn').addEventListener('click', battle.handleHit);
   document.getElementById('backBtn').addEventListener('click',()=>{ state.selectedMoveKey=null; renderUI(); });
 }
 
@@ -549,34 +528,6 @@ function playHitEffects(damage, wasCrit, moveKey){
   runImpactEffects();
 }
 
-/* === Battle logic: hit resolution, final blow, reset/heal flows === */
-/* ── Game logic ── */
-function handleHit(){
-  const kid=getKidById(state.selectedKidId);
-  const move=MOVE_DEFS[state.selectedMoveKey];
-  const m=state.game?.monster;
-  if(!kid||!move) return;
-  if(m?.finalBlowBy){ showToast('That fight is finished. Start the next monster.','warning'); return; }
-  if((m?.hp||0)<=0){ showToast('Boss is down. Use the final blow button.','warning'); return; }
-
-  const wasCrit=Math.random()<move.critChance;
-  const rolledDamage=move.baseDamage+(wasCrit?move.critBonus:0);
-  const damage=Math.min(rolledDamage, m.hp);
-  const nextHp=Math.max(0,m.hp-damage);
-
-  playHitEffects(damage,wasCrit,state.selectedMoveKey);
-
-  state.game={
-    ...state.game,
-    monster:{...m,hp:nextHp,burned: state.selectedMoveKey==='grenade' ? true : Boolean(m.burned)},
-    kids:state.game.kids.map(k=>k.id===kid.id?{...k,damage:k.damage+damage,monsterDamage:(k.monsterDamage||0)+damage}:{...k}),
-    battleLog:[{kidId:kid.id,kidName:kid.name,moveKey:state.selectedMoveKey,moveLabel:move.label,damage,wasCrit,at:new Date().toISOString()},...(state.game.battleLog||[])].slice(0,24)
-  };
-
-  state.selectedKidId=null; state.selectedMoveKey=null;
-  preserveScrollPosition(() => renderUI());
-  if(nextHp<=0) showToast('Boss is down. Final blow is ready.','success');
-}
 
 /* ── DEATH SEQUENCE ── */
 function spawnShockwave(){
@@ -763,66 +714,31 @@ function playDeathSequence(kid){
   },300); // wait for pre-death squash to land
 }
 
-function deliverFinalBlow(kidId){
-  const kid=getKidById(kidId); if(!kid) return;
-  const m=state.game?.monster;
-  if((m?.hp||0)>0){ showToast('The boss is not down yet.','warning'); return; }
-  if(m?.finalBlowBy){ showToast('Final blow already delivered.','warning'); return; }
-  const leaderIds=getMonsterLeaderIds();
-  if(!leaderIds.includes(kidId)){ showToast('That kid did not lead on this monster.','warning'); return; }
 
-  state.game={
-    ...state.game,
-    monster:{...m,finalBlowBy:kidId,finalBlowAt:new Date().toISOString()},
-    kids:state.game.kids.map(k=>k.id===kidId?{...k,kills:(k.kills||0)+1}:{...k})
-  };
-  recordStatsForKids(kid.name, state.game.kids, state);
-  Audio.finalBlow();
-  renderUI();
-  const w = getKidById(kidId);
-  showToast(`${w?.name || 'A hero'} delivered the final blow!`, 'success');
-  playDeathSequence(kid);
-}
+/* === Battle logic: hit resolution, final blow, reset/heal flows === */
+/* ── Game logic ── */
 
-function healMonster(amount=5){
-  const m=state.game?.monster; if(!m) return;
-  if(m.finalBlowBy){ showToast('That fight is finished. Spawn a new monster.','warning'); return; }
-  state.game={...state.game,monster:{...m,hp:Math.min(m.maxHp,m.hp+amount)}};
-  renderUI(); showToast(`Boss healed for ${amount}.`);
-}
-
-function resetBattle(){
-  state.game = {
-    ...state.game,
-    monster: createMonsterSeeded(),
-    kids: normalizeKids(state.game?.kids ?? KID_DEFAULTS).map(k => ({...k, monsterDamage: 0})),
-    battleLog: []
-  };
-  state.selectedKidId = null;
-  state.selectedMoveKey = null;
-  dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt','tier-2','tier-3','tier-4','tier-5');
-  renderUI();
-}
-
-function resetScores(){
-  resetPersistedStats();
-  if (state.game) {
-    state.game = {
-      ...state.game,
-      kids: KID_DEFAULTS.map(def => ({
-        ...def,
-        damage: 0,
-        monsterDamage: 0,
-        kills: 0
-      })),
-      battleLog: []
-    };
+const battle = createBattleController({
+  state,
+  moveDefs: MOVE_DEFS,
+  kidDefaults: KID_DEFAULTS,
+  normalizeKids,
+  createMonsterSeeded,
+  getKidById,
+  showToast,
+  renderUI,
+  preserveScrollPosition,
+  playHitEffects,
+  recordStatsForKids,
+  resetPersistedStats,
+  onFinalBlowResolved: (kid) => {
+    Audio.finalBlow();
+    playDeathSequence(kid);
+  },
+  onResetBattle: () => {
+    dom.monsterArt.classList.remove('is-dead','hurt','badly-hurt','tier-2','tier-3','tier-4','tier-5');
   }
-  state.selectedKidId = null;
-  state.selectedMoveKey = null;
-  renderUI();
-  showToast('Scores reset.', 'success');
-}
+});
 
 const storageDeps = {
   state,
@@ -843,7 +759,7 @@ const storageDeps = {
 
 /* === Boot/event wiring: startup + listeners === */
 /* ── Boot ── */
-dom.healMonsterBtn.addEventListener('click',()=>healMonster(5));
+dom.healMonsterBtn.addEventListener('click',()=>battle.healMonster(5));
 document.getElementById('saveBtn').addEventListener('click', () => exportSave(state, showToast));
 document.getElementById('loadInput').addEventListener('change', e => {
   if (e.target.files[0]) {
@@ -858,9 +774,9 @@ document.querySelectorAll('.lb-tab').forEach(btn => {
     renderLeaderboard();
   });
 });
-dom.resetBattleBtn.addEventListener('click', resetBattle);
-dom.bottomResetBattleBtn.addEventListener('click', resetBattle);
-dom.resetScoresBtn.addEventListener('click', resetScores);
+dom.resetBattleBtn.addEventListener('click', battle.resetBattle);
+dom.bottomResetBattleBtn.addEventListener('click', battle.resetBattle);
+dom.resetScoresBtn.addEventListener('click', battle.resetScores);
 dom.monsterArt.addEventListener('pointerdown', pokeMonster);
 document.addEventListener('pointerdown', () => Audio.unlock(), { once: true });
 
