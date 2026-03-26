@@ -269,9 +269,11 @@
     /* ── MONSTER ART OVERLAY FLASH ── */
     .monster-art{ position:relative; overflow:visible; }
     .monster-art::after{ content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; opacity:0; }
-    .monster-burn-mark{ position:absolute; width:84px; height:44px; left:50%; top:58%; transform:translate(-50%,-50%) rotate(-10deg) scale(0.6); border-radius:50%; background:radial-gradient(circle at center, rgba(12,8,7,0.86) 0%, rgba(50,24,18,0.68) 35%, rgba(255,120,64,0.22) 60%, rgba(255,120,64,0) 100%); mix-blend-mode:multiply; filter:blur(1px); opacity:0; pointer-events:none; }
-    .monster-burn-mark.active{ animation:burnMarkAppear 650ms ease forwards; }
-    @keyframes burnMarkAppear{ 0%{opacity:0; transform:translate(-50%,-58%) rotate(-16deg) scale(0.2)} 55%{opacity:0.85; transform:translate(-50%,-50%) rotate(-8deg) scale(1.08)} 100%{opacity:0.72; transform:translate(-50%,-50%) rotate(-10deg) scale(1)} }
+    @keyframes burnMarkReveal {
+      0%   { opacity: 0; transform: scale(0.3) rotate(-16deg); }
+      55%  { opacity: 0.85; transform: scale(1.08) rotate(-8deg); }
+      100% { opacity: 0.72; transform: scale(1) rotate(-10deg); }
+    }
     .grenade-projectile{ position:fixed; width:26px; height:26px; border-radius:50%; z-index:205; pointer-events:none; background:radial-gradient(circle at 35% 35%, #9aa4b2 0%, #55606f 55%, #1b222c 100%); border:2px solid rgba(255,255,255,0.18); box-shadow:0 0 18px rgba(255,140,100,0.35); animation:grenadeFlight 720ms cubic-bezier(.2,.75,.3,1) forwards; }
     .grenade-projectile::before{ content:''; position:absolute; width:10px; height:10px; border-radius:4px; background:#2d333b; top:-5px; left:8px; transform:rotate(24deg); }
     .grenade-projectile::after{ content:''; position:absolute; width:28px; height:28px; left:12px; top:-8px; background:radial-gradient(circle, rgba(255,219,120,0.95) 0%, rgba(255,147,85,0.7) 35%, rgba(255,147,85,0) 75%); filter:blur(1px); animation:fuseFlicker 180ms steps(2) infinite; }
@@ -336,6 +338,25 @@
   </style>
 </head>
 <body>
+<div id="burnMarkOverlay" aria-hidden="true" style="
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  display: none;
+">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible">
+    <defs>
+      <radialGradient id="burnGrad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"   stop-color="rgba(12,8,7,0.9)"/>
+        <stop offset="35%"  stop-color="rgba(50,24,18,0.72)"/>
+        <stop offset="65%"  stop-color="rgba(255,120,64,0.28)"/>
+        <stop offset="100%" stop-color="rgba(255,120,64,0)"/>
+      </radialGradient>
+      <filter id="burnBlur"><feGaussianBlur stdDeviation="3"/></filter>
+    </defs>
+    <ellipse cx="50" cy="50" rx="50" ry="50" fill="url(#burnGrad)" filter="url(#burnBlur)" opacity="0.82"/>
+  </svg>
+</div>
 <div id="app" class="shell">
   <header class="topbar">
     <h1 id="appTitle">Boss Battle</h1>
@@ -549,7 +570,8 @@ const dom = {
   healMonsterBtn:   document.getElementById('healMonsterBtn'),
   resetBattleBtn:   document.getElementById('resetBattleBtn'),
   bottomResetBattleBtn: document.getElementById('bottomResetBattleBtn'),
-  toast:            document.getElementById('toast')
+  toast:            document.getElementById('toast'),
+  burnMarkOverlay:  document.getElementById('burnMarkOverlay')
 };
 
 const state = { game:null, selectedKidId:null, selectedMoveKey:null, toastTimer:null };
@@ -827,7 +849,33 @@ function renderMonsterSVG(m, pct=100){
     <g>${noiseDots}</g>
     <g data-eyes="1">${eyes}</g>${mouth}
     ${cracks1}${cracks2}${cracks3}${stars}
-  </svg><div class="monster-burn-mark ${m.burned ? 'active' : ''}" aria-hidden="true"></div>`;
+  </svg>`;
+}
+
+function positionBurnMark() {
+  const overlay = dom.burnMarkOverlay;
+  const m = state.game?.monster;
+
+  if (!m?.burned || dom.monsterArt.classList.contains('is-dead')) {
+    overlay.style.display = 'none';
+    return;
+  }
+
+  const rect = dom.monsterArt.getBoundingClientRect();
+  const w = rect.width  * 0.62;
+  const h = rect.height * 0.34;
+  overlay.style.display  = 'block';
+  overlay.style.left     = `${rect.left + (rect.width - w) * 0.5}px`;
+  overlay.style.top      = `${rect.top  +  rect.height * 0.52}px`;
+  overlay.style.width    = `${w}px`;
+  overlay.style.height   = `${h}px`;
+}
+
+function triggerBurnMarkAppear() {
+  const overlay = dom.burnMarkOverlay;
+  overlay.style.animation = 'none';
+  void overlay.offsetWidth;
+  overlay.style.animation = 'burnMarkReveal 650ms ease forwards';
 }
 
 /* ── Toast ── */
@@ -1205,6 +1253,7 @@ function renderUI(){
   dom.appTitle.textContent=state.game?.title??'Boss Battle';
   renderMonster(); renderFinalBlowPanel(); renderKidButtons(); renderMovePanel(); renderLeaderboard();
   autoSave();
+  positionBurnMark();
 }
 
 /* ── HIT ANIMATIONS ── */
@@ -1380,12 +1429,7 @@ function spawnGrenadeExplosion(x,y){
     ember.addEventListener('animationend',()=>ember.remove(),{once:true});
   }
 
-  const burnMark=dom.monsterArt.querySelector('.monster-burn-mark');
-  if(burnMark){
-    burnMark.classList.remove('active');
-    void burnMark.offsetWidth;
-    burnMark.classList.add('active');
-  }
+  triggerBurnMarkAppear();
 }
 
 function playHitEffects(damage, wasCrit, moveKey){
