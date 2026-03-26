@@ -185,6 +185,21 @@ export function importSave(file, deps) {
   reader.readAsText(file);
 }
 
+export function getLeaderboardStats(game, normalizeKids) {
+  const stats = sanitizeStatsBucket(loadPeriodStats(getActivePeriod()));
+  const currentKids = normalizeKids(game?.kids ?? []);
+  const shouldOverlayCurrentMonster = Boolean(game?.monster) && !game.monster.finalBlowBy;
+
+  if (shouldOverlayCurrentMonster) {
+    currentKids.forEach(kid => {
+      if (!stats[kid.name]) stats[kid.name] = { kills: 0, damage: 0 };
+      stats[kid.name].damage += Number(kid.monsterDamage || 0);
+    });
+  }
+
+  return stats;
+}
+
 export function recordStatsForKids(killerName, allKids, stateObj) {
   ['day','week','alltime'].forEach(period => {
     const stats = loadPeriodStats(period);
