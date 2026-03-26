@@ -1,5 +1,4 @@
-/* === App state: constants and mutable state === */
-/* ── State ── */
+/** Shared game state and state-shaping helpers. */
 export const KID_DEFAULTS = [
   { id:'jj',    name:'JJ',    age:10 },
   { id:'roy5',  name:'Roy5',  age:8  },
@@ -31,7 +30,6 @@ export function normalizeKids(kids=KID_DEFAULTS){
   });
 }
 
-/* ── Helpers ── */
 export function getKidById(stateObj, id){ return stateObj.game?.kids?.find(k=>k.id===id)??null; }
 
 export function syncSelectionState(stateObj, getKidByIdFn, moveDefs=MOVE_DEFS) {

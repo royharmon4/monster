@@ -1,5 +1,4 @@
-/* === Battle logic: hit resolution, final blow, reset/heal flows === */
-/* ── Game logic ── */
+/** Battle domain logic: damage resolution, final blow rules, and reset flows. */
 export function getMonsterLeaderIds(game, normalizeKids){
   const kids=normalizeKids(game?.kids||[]);
   const high=Math.max(0,...kids.map(k=>Number(k.monsterDamage||0)));

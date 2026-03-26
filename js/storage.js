@@ -1,5 +1,4 @@
-/* === Leaderboard: period filtering + stat aggregation === */
-/* ── PERSISTENT STATS ── */
+/** Persistence and leaderboard storage: autosave, import/export, and period buckets. */
 let activePeriod = 'day';
 
 // In-memory stats store: { day: { '2026-3-22': { JJ: {kills,damage}, ... } }, week: {...}, alltime: {...} }
@@ -91,8 +90,6 @@ export function savePeriodStats(period, stats, stateObj) {
   autoSave(stateObj);
 }
 
-/* === Storage/save-load: local autosave + JSON import/export === */
-/* ── AUTO SAVE / LOAD ── */
 const AUTO_SAVE_KEY = 'bossbattle-autosave';
 
 export function sanitizeGame(game, { createInitialGame, createMonsterSeeded, buildMonsterArt, normalizeKids, kidDefaults }) {
@@ -141,7 +138,6 @@ export function autoLoad(stateObj, deps) {
   } catch {}
 }
 
-/* ── SAVE / LOAD JSON ── */
 export function exportSave(stateObj, showToast) {
   const saveData = {
     version: 2,

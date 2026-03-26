@@ -1,5 +1,4 @@
-/* === Audio/effects: Web Audio engine === */
-/* ── AUDIO ENGINE ── */
+/** Runtime effects engine: audio cues, hit/death animations, and toast UX. */
 const Audio = (() => {
   let ctx = null;
 
@@ -127,7 +126,6 @@ export function createEffects(deps){
     triggerBurnMarkAppear
   } = deps;
 
-  /* ── Toast ── */
   function showToast(msg, tone=''){
     dom.toast.textContent=msg; dom.toast.className='toast'; if(tone) dom.toast.classList.add(tone);
     dom.toast.classList.remove('hidden');
@@ -135,8 +133,6 @@ export function createEffects(deps){
     state.toastTimer=setTimeout(()=>dom.toast.classList.add('hidden'),2200);
   }
 
-  /* === Audio/effects: combat feedback and motion effects === */
-  /* ── HIT ANIMATIONS ── */
   function pulseClass(el,cls,dur){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); if(dur) setTimeout(()=>el.classList.remove(cls),dur); }
 
   function preserveScrollPosition(renderFn){
@@ -336,9 +332,6 @@ export function createEffects(deps){
     rippleHitBtn();
     runImpactEffects();
   }
-
-
-  /* ── DEATH SEQUENCE ── */
   function spawnShockwave(){
     const rect=dom.monsterArt.getBoundingClientRect();
     const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
@@ -521,29 +514,9 @@ export function createEffects(deps){
 
   return {
     showToast,
-    pulseClass,
     preserveScrollPosition,
-    spawnDamageNumber,
-    spawnCritBurst,
-    spawnScreenFlash,
-    shakeMonster,
     pokeMonster,
-    tiltPage,
-    spawnImpactLines,
-    flashMonsterArt,
-    flinchMonster,
-    rippleHitBtn,
-    launchGrenadeProjectile,
-    spawnGrenadeExplosion,
     playHitEffects,
-    spawnShockwave,
-    spawnDeathParticles,
-    spawnDeathStamp,
-    spawnVignette,
-    showVictoryModal,
-    spawnTapToContinue,
-    jelloPage,
-    spawnConfetti,
     playDeathSequence,
     unlockAudio: Audio.unlock,
     playFinalBlow: Audio.finalBlow

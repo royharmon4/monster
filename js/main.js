@@ -1,15 +1,25 @@
-import { KID_DEFAULTS, MOVE_DEFS, state, createInitialGame, normalizeKids, getKidById as getKidByIdFromState, syncSelectionState } from './state.js';
+/** Main app entrypoint: wires modules, bootstraps state, and binds UI events. */
+
+import {
+  KID_DEFAULTS,
+  MOVE_DEFS,
+  createInitialGame,
+  getKidById as getKidByIdFromState,
+  normalizeKids,
+  state,
+  syncSelectionState
+} from './state.js';
 import { getMonsterLeaders, createBattleController } from './battle.js';
 import {
-  autoSave,
   autoLoad,
+  autoSave,
   exportSave,
+  getActivePeriod,
+  getLeaderboardStats,
   importSave,
   recordStatsForKids,
-  getActivePeriod,
-  setActivePeriod,
   resetPersistedStats,
-  getLeaderboardStats
+  setActivePeriod
 } from './storage.js';
 import { THEMES, createMonsterSeeded, buildMonsterArt, createFlinchEyes, renderMonsterSVG, renderDeadMonsterSVG } from './monster.js';
 import { createEffects } from './effects.js';
@@ -33,7 +43,6 @@ const dom = {
   toast: document.getElementById('toast')
 };
 
-/* ── Helpers ── */
 function getKidById(id){ return getKidByIdFromState(state, id); }
 
 let battle;
@@ -80,9 +89,6 @@ const {
   playDeathSequence
 } = effects;
 
-/* === Battle logic: hit resolution, final blow, reset/heal flows === */
-/* ── Game logic ── */
-
 battle = createBattleController({
   state,
   moveDefs: MOVE_DEFS,
@@ -122,8 +128,6 @@ const storageDeps = {
   }
 };
 
-/* === Boot/event wiring: startup + listeners === */
-/* ── Boot ── */
 dom.healMonsterBtn.addEventListener('click',()=>battle.healMonster(5));
 document.getElementById('saveBtn').addEventListener('click', () => exportSave(state, showToast));
 document.getElementById('loadInput').addEventListener('change', e => {
